@@ -26,7 +26,7 @@ from glue.core.exceptions import IncompatibleAttribute
 from glue.viewers.common.layer_artist import LayerArtist
 from glue.utils import color2hex
 
-from ...link import link, dlink
+#from ...link import link, dlink
 from .state import MapLayerState#, MapSubsetLayerState
 
 

@@ -1,9 +1,9 @@
 from glue.core.subset import roi_to_subset_state
 from .state import MapViewerState
 
-from .layer_artist import IPyLeafletMapLayerArtist#, IPyLeafletMapSubsetLayerArtist
-from glue_jupyter.common.state_widgets.layer_map import MapLayerStateWidget
-from glue_jupyter.common.state_widgets.viewer_map import MapViewerStateWidget
+from .layer_artist import IPyLeafletMapLayerArtist
+from .state_widgets.layer_map import MapLayerStateWidget
+from .state_widgets.viewer_map import MapViewerStateWidget
 
 from glue.core.roi import PointROI
 
@@ -12,9 +12,9 @@ from glue.core.command import ApplySubsetState
 
 from echo.callback_container import CallbackContainer
 
-from ...view import IPyWidgetView
-from ...link import link, dlink, on_change
-from ...utils import float_or_none, debounced, get_ioloop
+from glue_jupyter.view import IPyWidgetView
+from glue_jupyter.link import link, dlink, on_change
+from glue_jupyter.utils import float_or_none, debounced, get_ioloop
 
 import ipyleaflet
 
