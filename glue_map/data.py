@@ -5,6 +5,9 @@ from glue.core.subset import ElementSubsetState, Subset
 from glue.core.component import Component, CoordinateComponent
 from glue.core.component_id import ComponentIDList
 
+__all__ = ['InvalidGeoData', 'GeoRegionData', 'GeoPandasTranslator']
+
+
 class InvalidGeoData(Exception):
     pass
 
