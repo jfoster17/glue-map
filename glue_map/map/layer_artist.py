@@ -1,20 +1,3 @@
-"""
-Next steps
-- Should we use GeoPandas as our base data type? The main advantage is that it allows
-us to have a single layer for points and shapes 
-https://ipyleaflet.readthedocs.io/en/latest/api_reference/geodata.html
-although I'm not sure how well it will play as a glue data type. Geopandas has some 
-nice tools to handle geometry stuff, but how does it work for glue subsets and all that?
-- If we do not do the above, we need to handle at least markers... perhaps as marker clusters? https://ipyleaflet.readthedocs.io/en/latest/api_reference/marker_cluster.html. Basic handling is probably pretty simple. The state class for a layer needs to 
-know what kind of data we are plotting in this layer and then it can communicate this to the layer artist to handle
-all the actual logic
-- I broke subset creation/display in my re-org, and we need to bring this back in
-- Layers currently cannot be hidden or re-ordered. Maybe work on this at the same time as doing sync with native controls?
-- Viewer state can display zoom level (but this is not that great) and center
-- When we add data to a layer it makes sense to try and center on it.
-
-"""
-
 import numpy as np
 import bqplot
 import json 
@@ -27,26 +10,20 @@ from glue.viewers.common.layer_artist import LayerArtist
 from glue.utils import color2hex
 
 #from ...link import link, dlink
-from .state import MapLayerState#, MapSubsetLayerState
-
-
+from .state import MapLayerState
 from ..data import GeoRegionData, GeoPandasTranslator
 
-from ipyleaflet.leaflet import LayerException, LayersControl, CircleMarker, Heatmap
 import ipyleaflet
+from ipyleaflet.leaflet import LayerException, LayersControl, CircleMarker, Heatmap
 from branca.colormap import linear
 
 from glue.utils import defer_draw, color2hex
 
-__all__ = ['IPyLeafletMapLayerArtist']#, 'IPyLeafletMapSubsetLayerArtist']
-
+__all__ = ['IPyLeafletMapLayerArtist']
 
 class IPyLeafletMapLayerArtist(LayerArtist):
     """
-    ipyleaflet layers are slightly complicated
-    
-    Basically, there is an empty Map object that displays the basemap (controlled by Viewer State) and
-    then there are layers for datasets/attributes that should be displayed on top of this
+    LayerArtist to draw on top of a Basemap (.mapfigure is controlled by Viewer State)
     """
     large_data_size = 1000
     
@@ -59,7 +36,7 @@ class IPyLeafletMapLayerArtist(LayerArtist):
           "properties":{"name":"Delaware"},
           "geometry":{
               "type":"Polygon",
-              "coordinates":[[[-75.414089,39.804456],[-75.507197,39.683964],[-75.611259,39.61824],[-75.589352,39.459409],[-75.441474,39.311532],[-75.403136,39.065069],[-75.189535,38.807653],[-75.09095,38.796699],[-75.047134,38.451652],[-75.693413,38.462606],[-75.786521,39.722302],[-75.616736,39.831841],[-75.414089,39.804456]]]
+              "coordinates":[[[-75.414089,39.804456],[-75.507197,39.683964],[-75.414089,39.804456]]]
               }
        }]
       }
@@ -69,23 +46,17 @@ class IPyLeafletMapLayerArtist(LayerArtist):
 
         super(IPyLeafletMapLayerArtist, self).__init__(viewer_state,
                                                          layer_state=layer_state, layer=layer)
-        #print("We are creating a layer artists...")
-        #print(f'layer at time of LayerArtist init = {self.layer}')
-        #print(f'layer_state at time of LayerArtist init = {layer_state}')
-        #if self._viewer_state.map is None: #If we pass in a layer state
-        #    self._viewer_state.map = map
-        self.layer=layer
+        self.layer = layer
         self._viewer_state = viewer_state
-        #self.layer_state = layer_state
         self.mapfigure = mapfigure
         self.state.add_callback('color_att', self._on_attribute_change)
         self._viewer_state.add_callback('lat_att', self._on_attribute_change)
         self._viewer_state.add_callback('lon_att', self._on_attribute_change)
         self.state.add_callback('colormap', self._on_colormap_change)
         self._on_colormap_change()
-        #print(self.state)
         
         if self.state.layer_type == 'regions':
+            # We need some valid fake data at creation time
             self.layer_artist = ipyleaflet.GeoJSON(data=self._fake_geo_json,
                                                    style={'fillOpacity': 0.5, 
                                                           'dashArray': '5, 5',
@@ -108,27 +79,18 @@ class IPyLeafletMapLayerArtist(LayerArtist):
     def _on_colormap_change(self, value=None):
         """
         self.state.colormap is a string
-        self.colormap is the actual colormap object `branca.colormap.LinearColormap` object
+        self.colormap is the actual `branca.colormap.LinearColormap` object
         """
-        
-        #print(f'in _on_colormap_change')
-        #print(f'state.colormap = {self.state.colormap}')
-        #print(f'value = {value}')
-        
         if self.state.colormap is None:
             return
-        #self.state.colormap = value
-        
         try:
             colormap = getattr(linear,self.state.colormap)
         except AttributeError:
             print("attribute error")
             colormap = linear.viridis #We need a default
-        #print(f"self.colormap is now = {colormap}")
         self.colormap = colormap
-        #self.layer_artist.colormap = colormap
         self.redraw()
-    
+
     def _on_attribute_change(self, value=None):
         if self.state.color_att is None:
             return
@@ -136,12 +98,9 @@ class IPyLeafletMapLayerArtist(LayerArtist):
             layer = self.layer
         else:
             layer = self.layer.data
-        
-            
-        #with delay_callback(self, '')
+
         if self.state.layer_type == 'regions':
-        
-            # XX TODO XX -- We need to verify that we should be plotting this
+            # TODO -- We need to verify that we should be plotting this
             # i.e. that the lat/lon attributes are appropriately linked/set
             trans = GeoPandasTranslator()
             try:
@@ -150,7 +109,8 @@ class IPyLeafletMapLayerArtist(LayerArtist):
                 self.disable_invalid_attributes()
                 self.visible = False
                 try:
-                    self.mapfigure.remove_layer(self.layer_artist) #We do not want to really remove this, we want to disable it
+                    # TODO: We do not want to really remove this, we just want to disable it
+                    self.mapfigure.remove_layer(self.layer_artist) 
                 except:
                     pass
                 return
@@ -183,7 +143,9 @@ class IPyLeafletMapLayerArtist(LayerArtist):
                                                style_callback = feature_color,
                                             )
             new_layer_artist.name = self.state.name
-            self.mapfigure.substitute_layer(self.layer_artist, new_layer_artist) #Swapping out the full layer seems to work better than updating attributes. Which is a bit unfortunate since it means we have more work to keep state attributes in sync
+            # Swapping out the full layer seems to work better than updating attributes.
+            # This is a bit unfortunate since it means we have more work to keep state attributes in sync
+            self.mapfigure.substitute_layer(self.layer_artist, new_layer_artist) 
             self.layer_artist = new_layer_artist
 
         elif self.state.layer_type == 'points':
@@ -251,16 +213,4 @@ class IPyLeafletMapLayerArtist(LayerArtist):
     def redraw(self):
         """Req: Re-render the plot."""
         pass
-        
-#class IPyLeafletMapSubsetLayerArtist(LayerArtist):#
-#
-#    _layer_state_cls = MapSubsetLayerState
-#
-#    def __init__(self, mapfigure, viewer_state, layer_state=None, layer=None):
-#
-#        super(IPyLeafletMapSubsetLayerArtist, self).__init__(viewer_state,
-#                                                         layer_state=layer_state, layer=layer)
-#        self.mapfigure = mapfigure
-#        self.layer = layer
-#        self.layer_state = layer_state
 
