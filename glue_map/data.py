@@ -11,13 +11,29 @@ class InvalidGeoData(Exception):
 
 class GeoRegionData(Data):
     """
-    A class to hold descriptions of geographic regions in the style of GeoPandas (https://geopandas.org/en/stable/)
+    A class to hold descriptions of geographic regions as GeoPandas
+    (https://geopandas.org/en/stable/) object, either GeoSeries or
+    GeoDataFrame objects. A GeoRegionData object is typically created
+    by loading a data file from disk in a format that glue recognizes
+    as a GeoPandas object (or explicitly using the GeoPandas data
+    loader).
+
+    The main challenges to representing arbitrary GeoPandas objects
+    (which may include extended regions defined by shapely {Multi}-Lines
+    or {Multi}-Polygons) within glue are: (1) defining coordinate
+    attributes that can be used for setting up links and to select
+    in viewers for display.
+
+    The current approach is to calculate `representative_points` on
+    the geometry column of a GeoPandas object and score these as
+    special `_centroid_component_ids`. A more natural choice might
+    be to use these attributes as coordinate components but they
+    are a bit different from normal coordinate components.
     
-    data must be a GeoPandas object, either a GeoSeries or a GeoDataFrame
-    
-    We calculate centroid positions on the geometry column in order to provide components of the correct
-    dimension for glue-ing/subsetting on and to serve as proxy components in the ipyleaflet viewer. 
-    
+    Currently we call these new attributes centroids, although they
+    are GeoPandas `representative_points` because we want to
+    guarantee that these points are within regions. Centroid
+    is a more intuitive, albeit technically incorrect, name.
     """
     
     def __init__(self, data, label="", coords=None, **kwargs):
@@ -26,14 +42,11 @@ class GeoRegionData(Data):
         self.geometry = None
         
         self._centroid_component_ids = ComponentIDList()
-        #self.gdf = data #Expensive duplication of data, but it is easy. Could use a data translator instead.
         #self.coords = GeoRegionCoordinates(n_dim=1)
-        #data must be a GeoPandas object
-        #self.coordinate_componenets = []
         if isinstance(data, geopandas.GeoSeries) or isinstance(data, geopandas.GeoDataFrame):
             self.geometry = None
-            self.centroids = data.representative_point() #Naming of centroid is a bit misleading, but easier than representative point
-            #self.add_component(self.centroids.y,label='Centroid '+data.crs.axis_info[1].name)
+            #Naming of centroid is a bit misleading, but easier than representative point
+            self.centroids = data.representative_point() 
             for i in range(2):
                 label = data.crs.axis_info[i].name + ' (Centroid)'
                 if i == 0:
@@ -52,15 +65,19 @@ class GeoRegionData(Data):
                         self.add_component(values.apply(lambda x: x.wkt).values,label='geometry')
             
         else:
-            raise InvalidGeoData("Input data needs to be of type geopandas.GeoSeries or geopandas.GeoDataFrame")
+            raise InvalidGeoData("Input data needs to be of type"
+                            "geopandas.GeoSeries or geopandas.GeoDataFrame")
         self.meta['crs'] = data.crs
         
-        #def get_mask(self, subset_state, view=None):
-        #    if isinstance(subset_state, ElementSubsetState):
                 
         
 @data_translator(geopandas.GeoDataFrame)
 class GeoPandasTranslator:
+    """
+    Convert a GeoPandas object to a glue GeoRegionData
+    object or reconstruct the native GeoPandas object
+    from a GeoRegionData object
+    """
  
     def to_data(self, data):
         return GeoRegionData(data)
@@ -69,15 +86,14 @@ class GeoPandasTranslator:
         gdf = geopandas.GeoDataFrame()
         coords = data_or_subset.coordinate_components
         if isinstance(data_or_subset, Subset):
-            #geom = data_or_subset.data.geometry
-            centroids = data_or_subset.data._centroid_component_ids #because these are sort of fake coords
+            # These are fake components created just for glue
+            centroids = data_or_subset.data._centroid_component_ids 
             crs = data_or_subset.data.meta['crs']
         else:
-            #geom = data_or_subset.geometry
-            centroids = data_or_subset._centroid_component_ids #because these are sort of fake coords
+            # These are fake components created just for glue
+            centroids = data_or_subset._centroid_component_ids
             crs = data_or_subset.meta['crs']
-            
-        #gdf.geometry = geom
+
         for cid in data_or_subset.components:
             if (cid not in coords) and (cid not in centroids):
                 if cid.label == 'geometry':
@@ -89,26 +105,6 @@ class GeoPandasTranslator:
         gdf.crs = crs
         return gdf
 
-    
-    
-# @data_translator(pd.DataFrame)
-# class PandasTranslator:
-# 
-#     def to_data(self, obj):
-#         result = Data()
-#         for c in obj.columns:
-#             result.add_component(obj[c], str(c))
-#         return result
-# 
-#     def to_object(self, data_or_subset, attribute=None):
-#         df = pd.DataFrame()
-#         coords = data_or_subset.coordinate_components
-#         for cid in data_or_subset.components:
-#             if cid not in coords:
-#                 df[cid.label] = data_or_subset[cid]
-#         return df
-
-    
 #class GeoRegionCoordinates(Coordinates):
 #    """
 #    A class to provide access to geographic coordinates
