@@ -25,7 +25,7 @@ class IPyLeafletMapLayerArtist(LayerArtist):
     """
     LayerArtist to draw on top of a Basemap (.mapfigure is controlled by Viewer State)
     """
-    large_data_size = 1000
+    #large_data_size = 1000
     
     _layer_state_cls = MapLayerState
     
@@ -98,7 +98,6 @@ class IPyLeafletMapLayerArtist(LayerArtist):
             layer = self.layer
         else:
             layer = self.layer.data
-
         if self.state.layer_type == 'regions':
             # TODO -- We need to verify that we should be plotting this
             # i.e. that the lat/lon attributes are appropriately linked/set
@@ -161,28 +160,14 @@ class IPyLeafletMapLayerArtist(LayerArtist):
                 lats = self.state.layer[self._viewer_state.lat_att]
                 lons = self.state.layer[self._viewer_state.lon_att]
                 in_color = self.get_layer_color()
-                #print(in_color)
-                try: #Ugly hack to make the starting points white. 
-                    float(in_color)
-                    in_color = 'white'
-                except:
-                    pass
-                color = color2hex(in_color)
+                hex_color = color2hex(in_color)
                 #print(color)
-                small = True
-                if len(lats) < self.large_data_size:
-                    markers = []
-                    for lat,lon in zip(lats,lons):
-                        markers.append(CircleMarker(location=(lat, lon),radius=4, stroke=False, fill_color=color, fill_opacity=0.7))#, weight=1, color='#FFFFFF'))
-                    #print("Markers made")
-                    self.layer_artist.layers = markers
-                else:
-                    #Fast, and generally good, but color options on heatmap are very limited
-                    locs = list(zip(lats,lons))
-                    new_layer_artist = Heatmap(locations=locs, radius=2, blur=1, min_opacity=0.5, gradient={0:color,1:color})
-                    #print("Heatmap made")
-                    self.mapfigure.substitute_layer(self.layer_artist, new_layer_artist)
-                    self.layer_artist = new_layer_artist
+                #Fast, and generally good, but color options on heatmap are very limited
+                locs = list(zip(lats,lons))
+                new_layer_artist = Heatmap(locations=locs, radius=2, blur=1, min_opacity=0.5, gradient={0:hex_color,1:hex_color})
+                #print("Heatmap made")
+                self.mapfigure.substitute_layer(self.layer_artist, new_layer_artist)
+                self.layer_artist = new_layer_artist
                     
                 #if isinstance(self.layer, Subset):
                 #    print(f"Plotting a subset of {len(lats)}")
