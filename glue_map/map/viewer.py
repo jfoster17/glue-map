@@ -48,16 +48,20 @@ class IPyLeafletMapView(IPyWidgetView):
         link((self.state, 'zoom_level'), (self.mapfigure, 'zoom'), float_or_none)
         link((self.state, 'center'), (self.mapfigure, 'center'))
         
-        
         control = ipyleaflet.LayersControl(position='bottomleft')
         self.mapfigure.add_control(control)
-        #dlink((self.state, 'basemap'), (self.mapfigure, 'basemap')) #map does not actually have a basemap attribute. 
+        #dlink((self.state, 'basemap'), (self.mapfigure, 'basemap')) #Map object does not have a basemap thing that stays in sync
+        
+        #We can take care of it manually like this:
+        #https://github.com/jupyter-widgets/ipyleaflet/blob/caaddb8150e628f711fbfa2a11a29f70e9d84ef5/examples/DropdownControl.ipynb
+        
+        #on_change([(self.state, 'basemap')])(self._change_basemap)
+
         #We would need to look for layer? changes?
         
         #self.state.remove_callback('layers', self._sync_layer_artist_container)
         #self.state.add_callback('layers', self._sync_layer_artist_container, priority=10000)
         
-        #on_change([(self.state, 'basemap')])(self._change_basemap)
         self.create_layout()
         
     #def _change_basemap(self):
