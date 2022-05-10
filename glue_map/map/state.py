@@ -108,7 +108,7 @@ class MapViewerState(ViewerState):
 
 class MapLayerState(LayerState):
     """
-    A state class that includes all the attributes for layers in a choropleth map.
+    A state class that includes all the attributes for layers on a map.
     
     This should have attributes for:
     
@@ -123,7 +123,21 @@ class MapLayerState(LayerState):
     visible : boolean
     
     color_steps (whether to turn a continuous variable into a stepped display) <-- less important
+    
+    
+    mapviewer.layers[0].state.color is what is set (poorly) in the GUI controls. Currently this does not display correctly or make it easy to update.
+    Does this actually work in scatter plot?
+    
     """
+    
+    # Color from ScatterLayerState. We probably want all? or some of this
+    
+    #cmap_mode = DDSCProperty(docstring="Whether to use color to encode an attribute")
+    #cmap_att = DDSCProperty(docstring="The attribute to use for the color")
+    #cmap_vmin = DDCProperty(docstring="The lower level for the colormap")
+    #cmap_vmax = DDCProperty(docstring="The upper level for the colormap")
+    #cmap = DDCProperty(docstring="The colormap to use (when in colormap mode)")
+
     
     color_att = SelectionCallbackProperty(docstring='The attribute to display as a choropleth')
     
@@ -132,7 +146,9 @@ class MapLayerState(LayerState):
     value_min = None
     value_max = None
     
-    color = None
+    #color = None
+    
+    large_data = False 
 
     name = "" #Name for display in the 
     def __init__(self, layer=None, viewer_state=None, **kwargs): #Calling this init is fubar
