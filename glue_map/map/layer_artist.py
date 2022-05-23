@@ -9,6 +9,7 @@ from glue.core.exceptions import IncompatibleAttribute
 from glue.viewers.common.layer_artist import LayerArtist
 from glue.utils import color2hex
 
+from glue_jupyter.link import on_change
 #from ...link import link, dlink
 from .state import MapLayerState
 from ..data import GeoRegionData, GeoPandasTranslator
@@ -49,10 +50,13 @@ class IPyLeafletMapLayerArtist(LayerArtist):
         self.layer = layer
         self._viewer_state = viewer_state
         self.mapfigure = mapfigure
-        self.state.add_callback('color_att', self._on_attribute_change)
+        self.state.add_callback('colormap_att', self._on_attribute_change)
+
+        on_change([(self.state, 'colormap_mode', 'colormap_att')])(self._on_colormap_mode_or_att_change)
+
         self._viewer_state.add_callback('lat_att', self._on_attribute_change)
         self._viewer_state.add_callback('lon_att', self._on_attribute_change)
-        self.state.add_callback('colormap', self._on_colormap_change)
+        self.state.add_callback('colormap_name', self._on_colormap_change)
         self._on_colormap_change()
         
         if self.state.layer_type == 'regions':
@@ -73,18 +77,28 @@ class IPyLeafletMapLayerArtist(LayerArtist):
         #link((self.state,'visible'), (self.layer_artist,'visible'))
         self.mapfigure.add_layer(self.layer_artist)
         
-        #self.colormap = 
-        #link((self.state, 'colormap'), (self.mapfigure.layers[1], 'colormap')) #We need to keep track of the layer?
-        
+        #self.colormap_name = 
+        #link((self.state, 'colormap_name'), (self.mapfigure.layers[1], 'colormap')) #We need to keep track of the layer?
+    
+    
+    def _on_colormap_mode_or_att_change(self, ignore=None):
+        if self.state.colormap_mode == 'Linear' and self.state.colormap_att is not None:
+            pass # XXX Need to update this XXX
+            #self.scatter.color = self.layer.data[self.state.colormap_att].astype(np.float32).ravel()
+        else:
+            pass # XXX Need to update this XXX
+            #self.scatter.color = None
+
+    
     def _on_colormap_change(self, value=None):
         """
-        self.state.colormap is a string
+        self.state.colormap_name is a string
         self.colormap is the actual `branca.colormap.LinearColormap` object
         """
-        if self.state.colormap is None:
+        if self.state.colormap_name is None:
             return
         try:
-            colormap = getattr(linear,self.state.colormap)
+            colormap = getattr(linear,self.state.colormap_name)
         except AttributeError:
             print("attribute error")
             colormap = linear.viridis #We need a default
@@ -92,8 +106,9 @@ class IPyLeafletMapLayerArtist(LayerArtist):
         self.redraw()
 
     def _on_attribute_change(self, value=None):
-        if self.state.color_att is None:
+        if self.state.colormap_mode == 'Linear' and self.state.colormap_att is None:
             return
+            
         if isinstance(self.layer, BaseData):
             layer = self.layer
         else:
@@ -123,7 +138,7 @@ class IPyLeafletMapLayerArtist(LayerArtist):
                                                        hover_style={'fillOpacity': 0.95},
                                                     )
             else:
-                c = np.array(layer[self.state.color_att].tolist())
+                c = np.array(layer[self.state.colormap_att].tolist())
                 self.state.value_min = min(c)
                 self.state.value_max = max(c)
                 diff = self.state.value_max-self.state.value_min
@@ -132,7 +147,7 @@ class IPyLeafletMapLayerArtist(LayerArtist):
                 
                 def feature_color(feature):
                     feature_name = feature["id"]
-                    return {'fillColor': self.colormap(mapping[feature_name])}
+                    return {'fillColor': self.colormap_name(mapping[feature_name])}
                 
                 new_layer_artist = ipyleaflet.GeoJSON(data=json.loads(gdf.to_json()),
                                                style={'fillOpacity': 0.5, 

@@ -5,7 +5,7 @@ from glue.core import BaseData, Subset, Data
 from echo import delay_callback
 from glue.viewers.common.state import ViewerState, LayerState
 
-from echo import CallbackProperty, SelectionCallbackProperty
+from echo import CallbackProperty, SelectionCallbackProperty, keep_in_sync, delay_callback
 
 from glue.core.exceptions import IncompatibleAttribute, IncompatibleDataException
 from glue.core.data_combo_helper import ComponentIDComboHelper, ComboHelper
@@ -13,13 +13,18 @@ from glue.utils import defer_draw, datetime64_to_mpl
 from glue.utils.decorators import avoid_circular
 from ipyleaflet import Map, basemaps, basemap_to_tiles
 
+from glue.utils import color2hex
+
 from glue.config import colormaps
 from branca.colormap import linear
 from glue.core.data import Subset
 
+#from glue-jupter.link import on_change, link, dlink
+
 from ..data import GeoRegionData
 
 __all__ = ['MapViewerState', 'MapLayerState']
+CMAP_PROPERTIES = set(['colormap_mode', 'colormap_att', 'colormap_vmin', 'colormap_vmax', 'colormap_name'])
 
 
 class MapViewerState(ViewerState):
@@ -115,11 +120,11 @@ class MapLayerState(LayerState):
     
     Parameters
     ----------
-    color_att : `~glue.core.component_id.ComponentID`
+    colormap_att : `~glue.core.component_id.ComponentID`
         The values of this attribute determine the color of points or regions
-    colormap : string
+    colormap_name : string
         A string (because colormap object themselves cannot travel through json) describing the colormap to 
-        apply to color_att values.                
+        apply to colormap_att values.                
     visible : boolean
     
     color_steps (whether to turn a continuous variable into a stepped display) <-- less important
@@ -132,17 +137,15 @@ class MapLayerState(LayerState):
     
     # Color from ScatterLayerState. We probably want all? or some of this
     
-    #cmap_mode = DDSCProperty(docstring="Whether to use color to encode an attribute")
-    #cmap_att = DDSCProperty(docstring="The attribute to use for the color")
-    #cmap_vmin = DDCProperty(docstring="The lower level for the colormap")
-    #cmap_vmax = DDCProperty(docstring="The upper level for the colormap")
-    #cmap = DDCProperty(docstring="The colormap to use (when in colormap mode)")
+    colormap_mode = SelectionCallbackProperty(docstring="Whether to use color to encode an attribute")
+    colormap_att  = SelectionCallbackProperty(docstring="The attribute to use for the color")
+    colormap_vmin = SelectionCallbackProperty(docstring="The lower level for the colormap")
+    colormap_vmax = SelectionCallbackProperty(docstring="The upper level for the colormap")
+    colormap_name = SelectionCallbackProperty(docstring="The colormap to use (when in colormap mode)")
+
+    color = SelectionCallbackProperty(docstring='The color used to display the data')
 
     
-    color_att = SelectionCallbackProperty(docstring='The attribute to display as a choropleth')
-    
-    colormap = SelectionCallbackProperty(docstring='Colormap used to display this layer')
-
     value_min = None
     value_max = None
     
@@ -154,16 +157,31 @@ class MapLayerState(LayerState):
     def __init__(self, layer=None, viewer_state=None, **kwargs): #Calling this init is fubar
             
         super(MapLayerState, self).__init__()
+        self.layer = layer #This is critical!
         
-        self.color_att_helper = ComponentIDComboHelper(self, 'color_att', numeric=True, categorical=False)
+        ## Option 1: create a toy viewer plug-in with almost nothing in state etc. except for color
+        ## Option 2: add some debug to bqplot scatter viewer to see when the choices for color SelectionCallbackProperty actually get set. This has to be happening automagically somewhere. Maybe in widgets.ColorPicker?
         
-        #To be fancy we should determine the type of color_att and set the colormap choices based on that
+        #self._sync_color = keep_in_sync(self, 'color', self.layer.style, 'color')
+
+        #self.color = color2hex(self.layer.style.color)
+        #print(self.color)
+        # We need some of this, but... ugh
+        # How is keep_in_sync and add_callback different?
+        #self.color = self.layer.style.color
+
+        self.add_global_callback(self._notify_layer_update)
+        self.colormap_att_helper = ComponentIDComboHelper(self, 'colormap_att', numeric=True, categorical=False)
+        
+        #To be fancy we should determine the type of colormap_att and set the colormap choices based on that
         #Except ipyleaflet seems to have a limited set of colormaps -- and are any categorical?
         
-        self.colormap_helper = ComboHelper(self, 'colormap')
-        self.colormap_helper.choices = ['viridis','YlOrRd_04','PuBuGn_04','PuOr_04','Purples_09','YlGnBu_09','Blues_08','PuRd_06']
-        self.colormap_helper.selection = 'viridis'
-        #self.add_callback('color_att', self._on_attribute_change)
+        MapLayerState.colormap_mode.set_choices(self, ['Fixed', 'Linear'])
+        
+        self.colormap_name_helper = ComboHelper(self, 'colormap_name')
+        self.colormap_name_helper.choices = ['viridis','YlOrRd_04','PuBuGn_04','PuOr_04','Purples_09','YlGnBu_09','Blues_08','PuRd_06']
+        self.colormap_name_helper.selection = 'viridis'
+        #self.add_callback('colormap_att', self._on_attribute_change)
         
         self.add_callback('layer', self._layer_changed)
 
@@ -172,7 +190,6 @@ class MapLayerState(LayerState):
         #self.add_callback('colormap', self._on_colormap_change) Do we need this, actually?
         
         #print(layer)
-        self.layer = layer #This is critical!
         # We distinguish between layers that plot regions and those that plot points
         # Glue can only plot region-type data for datasets stored as GeoData objects
         #if isinstance(self.layer, GeoRegionData):
@@ -181,7 +198,7 @@ class MapLayerState(LayerState):
         #if self.viewer_state is not None:
         #    self._on_attribute_change()
         #self._on_attribute_change()
-        #self.color_att_helper.set_multiple_data([layer])
+        #self.colormap_att_helper.set_multiple_data([layer])
         #self.add_callback('layers', self._update_attribute)
         
         #if layer is not None:
@@ -200,12 +217,18 @@ class MapLayerState(LayerState):
     #def _update_attribute(self, *args):
     #    pass
         #if self.layer is not None:
-        #    self.color_att_helper.set_multiple_data([self.layer])
-        #    #self.color_att = self.layer.main_components[0]
+        #    self.colormap_att_helper.set_multiple_data([self.layer])
+        #    #self.colormap_att = self.layer.main_components[0]
         #    print(self.layer)
-        #    print(self.color_att_helper._data)
-        #    self.c_geo_metadata = self.color_att_helper._data[0].meta['geo']
-        
+        #    print(self.colormap_att_helper._data)
+        #    self.c_geo_metadata = self.colormap_att_helper._data[0].meta['geo']
+    
+    def _notify_layer_update(self, **kwargs):
+        message = LayerArtistUpdatedMessage(self)
+        if self.layer is not None and self.layer.hub is not None:
+            self.layer.hub.broadcast(message)
+
+    
     def _get_geom_type(self):
         if self.layer is not None:
             #print(f"layer type is: {type(self.layer)}")
@@ -234,7 +257,7 @@ class MapLayerState(LayerState):
         
     def _layer_changed(self, *args):
         if self.layer is not None:
-            self.color_att_helper.set_multiple_data([self.layer])
+            self.colormap_att_helper.set_multiple_data([self.layer])
             self.name = self.layer.label
             self._get_geom_type()
         
@@ -242,7 +265,7 @@ class MapLayerState(LayerState):
         #print("In _on_attribute_change")
         #print(self.layer)
         if self.layer is not None:
-            self.color_att_helper.set_multiple_data([self.layer])
+            self.colormap_att_helper.set_multiple_data([self.layer])
 
 
     @property

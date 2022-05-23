@@ -86,8 +86,8 @@ def test_colormap(mapapp, mapdata):
          (0.32941176470588235, 0.15294117647058825, 0.5607843137254902, 1.0),
          (0.24705882352941178, 0.0, 0.49019607843137253, 1.0)])
     s = mapapp.new_data_viewer('map',data=mapdata, color= 'Count_Person', colormap='Purples_09')
-    assert s.layers[0].state.colormap == 'Purples_09'
-    assert_allclose(s.mapfigure.layers[1].colormap.colors,purple_test_colors)
+    assert s.layers[0].state.colormap_name == 'Purples_09'
+    assert_allclose(s.mapfigure.layers[1].colormap_name.colors,purple_test_colors)
 
 @pytest.mark.skip(reason='Cannot set state parameters at initialization yet')
 def test_empty_map_set_init_and_check_sync(mapapp):

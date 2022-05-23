@@ -1,11 +1,11 @@
 <template>
     <div>
         <div>
-            <v-select :items="color_att_items" label="color" v-model="color_att_selected"/>
+            <v-select :items="colormap_att_items" label="color" v-model="colormap_att_selected"/>
             </v-select>
         </div>
         <div>
-            <v-select :items="colormap_items" label="colormap" v-model="colormap_selected"/>
+            <v-select :items="colormap_name_items" label="colormap_name" v-model="colormap_name_selected"/>
             </v-select>   
         </div>
     </div>
