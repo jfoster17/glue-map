@@ -19,7 +19,7 @@ from branca.colormap import linear
 
 from glue.utils import defer_draw, color2hex
 
-__all__ = ['IPyLeafletMapLayerArtist']
+__all__ = ['MapRegionLayerArtist', 'MapPointsLayerArtist']
 
 class IPyLeafletMapLayerArtist(LayerArtist):
     """

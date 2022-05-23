@@ -1,74 +1,82 @@
-from glue.core.subset import roi_to_subset_state
-from .state import MapViewerState
-
-from .layer_artist import IPyLeafletMapLayerArtist
-from .state_widgets.layer_map import MapLayerStateWidget
-from .state_widgets.viewer_map import MapViewerStateWidget
-
-from glue.core.roi import PointROI
-
-from glue.core.subset import roi_to_subset_state
-from glue.core.command import ApplySubsetState
-
-from echo.callback_container import CallbackContainer
-
-from glue_jupyter.view import IPyWidgetView
-from glue_jupyter.link import link, dlink, on_change
-from glue_jupyter.utils import float_or_none, debounced, get_ioloop
-
 import ipyleaflet
 
+from glue.logger import logger
 
-__all__ = ['IPyLeafletMapView']
+from glue_jupyter.view import IPyWidgetView
+from glue_jupyter.link import link
+from glue_jupyter.utils import float_or_none
+
+from .state import MapViewerState
+from .layer_artist import MapRegionLayerArtist, MapPointsLayerArtist
+from .state_widgets.layer_map import MapLayerStateWidget
+from .state_widgets.viewer_map import MapViewerStateWidget
+from .utils import get_geom_type
 
 
-class IPyLeafletMapView(IPyWidgetView):
+__all__ = ['IPyLeafletMapViewer']
 
+
+class IPyLeafletMapViewer(IPyWidgetView):
+    """
+    A glue viewer to show an `ipyleaflet` Map viewer with data.
+    
+    The data can either be regions (using a MapRegionLayerArtist)
+    or point-like data (using a MapPointsLayerArtist)
+    
+    """
+    
+    
+    LABEL = 'Map Viewer (ipleaflet)'
+    _map = None # The ipyleaflet Map object
+    
     allow_duplicate_data = True
     allow_duplicate_subset = False
-    _default_mouse_mode_cls = None
     
-
     _state_cls = MapViewerState
     _options_cls = MapViewerStateWidget 
-    _data_artist_cls = IPyLeafletMapLayerArtist
-    _subset_artist_cls = IPyLeafletMapLayerArtist
-    _layer_style_widget_cls = MapLayerStateWidget
+    _layer_style_widget_cls = {
+        MapRegionLayerArtist: RegionLayerStateWidget,
+        MapPointsLayerArtist: PointsLayerStateWidget,
+    }
 
     tools = ['ipyleaflet:pointselect','ipyleaflet:rectangleselect']
 
     def __init__(self, session, state=None):
-        
-        
-        #print("Inside init for the viewer")
+        logger.debug("Creating a new Viewer...")
         super(IPyLeafletMapView, self).__init__(session, state=state)
-        
-        self.mapfigure = ipyleaflet.Map(basemap=self.state.basemap, prefer_canvas=True)
-        
-        link((self.state, 'zoom_level'), (self.mapfigure, 'zoom'), float_or_none)
-        link((self.state, 'center'), (self.mapfigure, 'center'))
-        
-        control = ipyleaflet.LayersControl(position='bottomleft')
-        self.mapfigure.add_control(control)
-        #dlink((self.state, 'basemap'), (self.mapfigure, 'basemap')) #Map object does not have a basemap thing that stays in sync
-        
-        #We can take care of it manually like this:
-        #https://github.com/jupyter-widgets/ipyleaflet/blob/caaddb8150e628f711fbfa2a11a29f70e9d84ef5/examples/DropdownControl.ipynb
-        
-        #on_change([(self.state, 'basemap')])(self._change_basemap)
 
-        #We would need to look for layer? changes?
+        self._initialize_map()
         
-        #self.state.remove_callback('layers', self._sync_layer_artist_container)
-        #self.state.add_callback('layers', self._sync_layer_artist_container, priority=10000)
-        
+        link((self.state, 'zoom_level'), (self._map, 'zoom'), float_or_none)
+        link((self.state, 'center'), (self._map, 'center'))
+
+        self.state.add_global_feedback(self._update_map)
+        self._update_map(force=True):
         self.create_layout()
         
-    #def _change_basemap(self):
-    #    print('In Viewer _change_basemap')
+    def _initialize_map(self):
+        self._map = ipyleaflet.Map(basemap=self.state.basemap, prefer_canvas=True)
         
+    def _update_map(self, force=False, **kwargs):
+        if force or 'basemap' in kwargs:
+            pass #Change basemap
+    
     def get_layer_artist(self, cls, layer=None, layer_state=None):
-        return cls(self.mapfigure, self.state, layer=layer, layer_state=layer_state)
+        """Need to add a reference to the ipyleaflet Map object"""
+        return cls(self._map, self.state, layer=layer, layer_state=layer_state)
+    
+    def get_data_layer_artist(self, layer=None, layer_state=None):
+        if get_geom_type(layer) == 'regions':
+            cls = MapRegionLayerArtist
+        elif get_geom_type(layer) == 'points':
+            cls = MapPointsLayerArtist
+        else:
+            raise ValueErorr(f"IPyLeafletMapViewer does not know how to render the data in {layer.label}")
+        return cls(self.state, map=self._map, layer=layer, layer_state=layer_state)
+        
+    def get_subset_layer_artist(self, layer=None, layer_state=None):
+        return self.get_data_layer_artist(layer=layer, layer_state=layer_state)
+    
     
     @property
     def figure_widget(self):
