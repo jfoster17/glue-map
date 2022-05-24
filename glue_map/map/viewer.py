@@ -12,8 +12,20 @@ from .state_widgets.layer_map import MapLayerStateWidget
 from .state_widgets.viewer_map import MapViewerStateWidget
 from .utils import get_geom_type
 
+from glue_jupyter.widgets import LinkedDropdown, Color, Size
+
+from ipywidgets import HBox, Tab, VBox, FloatSlider, FloatText
 
 __all__ = ['IPyLeafletMapViewer']
+
+
+class PointsLayerStateWidget(VBox):
+    def __init__(self, layer_state):
+        self.state = layer_state
+        self.color_widgets = Color(state=self.state)
+        self.size_widgets = Size(state=self.state)
+    
+        super().__init__([self.size_widgets, self.color_widgets])
 
 
 class IPyLeafletMapViewer(IPyWidgetView):
@@ -35,7 +47,7 @@ class IPyLeafletMapViewer(IPyWidgetView):
     _state_cls = MapViewerState
     _options_cls = MapViewerStateWidget 
     _layer_style_widget_cls = {
-        MapRegionLayerArtist: RegionLayerStateWidget,
+        MapRegionLayerArtist: PointsLayerStateWidget, # Do our own RegionLayerStateWidget
         MapPointsLayerArtist: PointsLayerStateWidget,
     }
 
@@ -43,15 +55,15 @@ class IPyLeafletMapViewer(IPyWidgetView):
 
     def __init__(self, session, state=None):
         logger.debug("Creating a new Viewer...")
-        super(IPyLeafletMapView, self).__init__(session, state=state)
+        super(IPyLeafletMapViewer, self).__init__(session, state=state)
 
         self._initialize_map()
         
         link((self.state, 'zoom_level'), (self._map, 'zoom'), float_or_none)
         link((self.state, 'center'), (self._map, 'center'))
 
-        self.state.add_global_feedback(self._update_map)
-        self._update_map(force=True):
+        self.state.add_global_callback(self._update_map)
+        self._update_map(force=True)
         self.create_layout()
         
     def _initialize_map(self):
@@ -80,7 +92,7 @@ class IPyLeafletMapViewer(IPyWidgetView):
     
     @property
     def figure_widget(self):
-        return self.mapfigure
+        return self._map
     
     def redraw(self):
         pass

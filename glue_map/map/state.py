@@ -5,9 +5,11 @@ from glue.core import BaseData, Subset, Data
 from echo import delay_callback
 from glue.viewers.common.state import ViewerState, LayerState
 
-from echo import CallbackProperty, SelectionCallbackProperty
+from echo import CallbackProperty, SelectionCallbackProperty, keep_in_sync
 
 from glue.core.exceptions import IncompatibleAttribute, IncompatibleDataException
+from glue.core.state_objects import StateAttributeLimitsHelper
+
 from glue.core.data_combo_helper import ComponentIDComboHelper, ComboHelper
 from glue.utils import defer_draw, datetime64_to_mpl
 from glue.utils.decorators import avoid_circular
@@ -61,7 +63,7 @@ class MapViewerState(ViewerState):
                                                     categorical=False)
         
         
-        self.add_callback('layers', self._layers_changed)
+        self.add_callback('layers', self._on_layers_changed)
         self._on_layers_changed()
         self.update_from_dict(kwargs)
 
@@ -105,7 +107,7 @@ class MapPointsLayerState(LayerState):
         
         self._sync_markersize = None
 
-        super(MapRegionLayerState, self).__init__(layer=layer)
+        super(MapPointsLayerState, self).__init__(layer=layer)
         
         self._sync_color = keep_in_sync(self, 'color', self.layer.style, 'color')
         self._sync_alpha = keep_in_sync(self, 'alpha', self.layer.style, 'alpha')
@@ -136,8 +138,8 @@ class MapPointsLayerState(LayerState):
 
         self.cmap = colormaps.members[0][1]
 
-        MapRegionLayerState.color_mode.set_choices(self,['Fixed', 'Linear'])
-        MapRegionLayerState.size_mode.set_choices(self,['Fixed', 'Linear'])
+        MapPointsLayerState.color_mode.set_choices(self,['Fixed', 'Linear'])
+        MapPointsLayerState.size_mode.set_choices(self,['Fixed', 'Linear'])
 
         if isinstance(layer, Subset):
             self.name = f"{self.name} {(self.layer.data.label)}"
@@ -163,7 +165,7 @@ class MapPointsLayerState(LayerState):
 
     def _layer_changed(self):
             
-        super(MapRegionLayerState, self)._layer_changed()
+        super(MapPointsLayerState, self)._layer_changed()
     
         if self._sync_markersize is not None:
             self._sync_markersize.stop_syncing()
