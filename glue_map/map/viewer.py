@@ -42,7 +42,7 @@ class SimpleSize(VBox):
                                                   value=self.state.size_scaling)
         link((self.state, 'size_scaling'), (self.widget_scaling, 'value'))
         
-        self.layout.width='300px'
+        self.layout.width='300px' #Gets rid of scrollbars on my setup
         self.children = (self.widget_size, self.widget_scaling)
 
 
@@ -62,6 +62,11 @@ class PointsLayerStateWidget(VBox):
         #self.simple_color_widgets = SimpleColor(state=self.state)
         self.simple_size_widgets = SimpleSize(state=self.state)
     
+        self.widget_alpha = ipywidgets.FloatSlider(description='opacity', min=0, max=1,
+                                                  value=self.state.alpha)
+        link((self.state, 'alpha'), (self.widget_alpha, 'value'))
+
+    
         # Only show full color_widget for Individual Points mode
         dlink((self.widget_display_mode, 'value'), (self.color_widgets.layout, 'display'),
           lambda value: None if value == display_mode_options[1] else 'none')
@@ -78,8 +83,8 @@ class PointsLayerStateWidget(VBox):
             lambda value: None if value == display_mode_options[0] else 'none')
         
         super().__init__([self.widget_display_mode, self.size_widgets, self.color_widgets, 
-                          self.simple_size_widgets])
-        self.layout.width='300px'
+                          self.simple_size_widgets, self.widget_alpha])
+        self.layout.width='300px' #Gets rid of scrollbars on my setup
 
 
 class IPyLeafletMapViewer(IPyWidgetView):

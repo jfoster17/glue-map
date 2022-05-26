@@ -157,7 +157,7 @@ class MapPointsLayerArtist(LayerArtist):
         if force or 'alpha' in changed:
             try:
                 self.map.remove_layer(self.map_layer)
-                self.map_layer.min_opacity = self.state.alpha
+                self.map_layer.min_opacity = self.state.alpha #This is not quite right, but close enough
                 self.map.add_layer(self.map_layer)
             except ipyleaflet.LayerException:
                 pass
