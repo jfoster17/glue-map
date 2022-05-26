@@ -1,10 +1,12 @@
 import ipyleaflet
 
 from glue.logger import logger
+from glue.utils import color2hex
 
 from glue_jupyter.view import IPyWidgetView
-from glue_jupyter.link import link
+from glue_jupyter.link import link, dlink
 from glue_jupyter.utils import float_or_none
+
 
 from .state import MapViewerState
 from .layer_artist import MapRegionLayerArtist, MapPointsLayerArtist
@@ -14,18 +16,70 @@ from .utils import get_geom_type
 
 from glue_jupyter.widgets import LinkedDropdown, Color, Size
 
+import ipywidgets
 from ipywidgets import HBox, Tab, VBox, FloatSlider, FloatText
 
 __all__ = ['IPyLeafletMapViewer']
 
 
+class SimpleColor(VBox):
+    def __init__(self, state, **kwargs):
+        super(SimpleColor, self).__init__(**kwargs)
+        self.state = state
+        self.widget_color = ipywidgets.ColorPicker(description='color')
+        link((self.state, 'color'), (self.widget_color, 'value'), color2hex)
+        self.children = (self.widget_color,)
+
+class SimpleSize(VBox):
+    def __init__(self, state, **kwargs):
+        super(SimpleSize, self).__init__(**kwargs)
+        self.state = state
+        
+        self.widget_size = ipywidgets.FloatSlider(description='size', min=0, max=10,
+                                               value=self.state.size)
+        link((self.state, 'size'), (self.widget_size, 'value'))
+        self.widget_scaling = ipywidgets.FloatSlider(description='scale', min=0, max=2,
+                                                  value=self.state.size_scaling)
+        link((self.state, 'size_scaling'), (self.widget_scaling, 'value'))
+        
+        self.layout.width='300px'
+        self.children = (self.widget_size, self.widget_scaling)
+
+
 class PointsLayerStateWidget(VBox):
     def __init__(self, layer_state):
         self.state = layer_state
+        
+        display_mode_options = type(self.state).display_mode.get_choice_labels(self.state)
+        self.widget_display_mode = ipywidgets.RadioButtons(options=display_mode_options,
+                                                     description='display mode')
+        link((self.state, 'display_mode'), (self.widget_display_mode, 'value'))
+        
+        
         self.color_widgets = Color(state=self.state)
         self.size_widgets = Size(state=self.state)
     
-        super().__init__([self.size_widgets, self.color_widgets])
+        #self.simple_color_widgets = SimpleColor(state=self.state)
+        self.simple_size_widgets = SimpleSize(state=self.state)
+    
+        # Only show full color_widget for Individual Points mode
+        dlink((self.widget_display_mode, 'value'), (self.color_widgets.layout, 'display'),
+          lambda value: None if value == display_mode_options[1] else 'none')
+        # Only show full size_widget for Individual Points mode
+        dlink((self.widget_display_mode, 'value'), (self.size_widgets.layout, 'display'),
+          lambda value: None if value == display_mode_options[1] else 'none')
+
+        ## Only show simple color_widget for Individual Points mode
+        #dlink((self.widget_display_mode, 'value'), (self.simple_color_widgets.layout, 'display'),
+        #    lambda value: None if value == display_mode_options[0] else 'none')
+
+        # Only show simple size_widget for Individual Points mode
+        dlink((self.widget_display_mode, 'value'), (self.simple_size_widgets.layout, 'display'),
+            lambda value: None if value == display_mode_options[0] else 'none')
+        
+        super().__init__([self.widget_display_mode, self.size_widgets, self.color_widgets, 
+                          self.simple_size_widgets])
+        self.layout.width='300px'
 
 
 class IPyLeafletMapViewer(IPyWidgetView):

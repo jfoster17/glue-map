@@ -92,6 +92,8 @@ class MapPointsLayerState(LayerState):
     size = CallbackProperty()
     alpha = CallbackProperty()
     
+    display_mode = SelectionCallbackProperty(default_index=0)
+    
     size_mode = SelectionCallbackProperty(default_index=0)
     size = CallbackProperty()
     size_att = SelectionCallbackProperty()
@@ -109,7 +111,7 @@ class MapPointsLayerState(LayerState):
     size_limits_cache = CallbackProperty({})
     cmap_limits_cache = CallbackProperty({})
 
-    name = "" #Name for display in the 
+    name = "" #Name for display
     
     def __init__(self, layer=None, **kwargs):
         
@@ -146,6 +148,7 @@ class MapPointsLayerState(LayerState):
 
         self.cmap = colormaps.members[0][1]
 
+        MapPointsLayerState.display_mode.set_choices(self,['Heatmap', 'Individual Points'])
         MapPointsLayerState.color_mode.set_choices(self,['Fixed', 'Linear'])
         MapPointsLayerState.size_mode.set_choices(self,['Fixed', 'Linear'])
 
