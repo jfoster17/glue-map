@@ -38,7 +38,7 @@ class MapPointsLayerArtist(LayerArtist):
     
     (gradient and radius certainly do not, locations do) 
     
-    we are forced to substitute out a whole layer everytime we need to update
+    we are forced to substitute out a whole layer every time we need to update
     
     """
     
@@ -90,7 +90,6 @@ class MapPointsLayerArtist(LayerArtist):
             heatmap: which is the default for large? datasets but does not have a lot of options
             layer_group of circle markers: which can do all the cmap and size stuff
             
-        This logic is rather buggy, and only sometimes responds to changes in attributes
         """
         
         #print(f"Updating layer_artist for points in {self.layer.label}")
@@ -116,8 +115,6 @@ class MapPointsLayerArtist(LayerArtist):
             except ipyleaflet.LayerException:
                 pass
 
-        self.new_map_layer = self.map_layer.copy()
-        
         if force or any(x in changed for x in ['lon_att','lat_att']):
             #print("Inside lat/lon if statement")
             try:
@@ -165,11 +162,6 @@ class MapPointsLayerArtist(LayerArtist):
             except ipyleaflet.LayerException:
                 pass
 
-        try:
-            self.map.remove_layer(self.map_layer)
-            self.map.add_layer(self.map_layer)
-
-        
         self.enable()
 
 class MapRegionLayerArtist(LayerArtist):
