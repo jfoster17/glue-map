@@ -3,7 +3,6 @@ import bqplot
 import json 
 import random
 
-
 from glue.core import BaseData
 from glue.core.data import Subset
 
@@ -64,7 +63,7 @@ class MapPointsLayerArtist(LayerArtist):
         self.state.add_global_callback(self._update_presentation)
         self._viewer_state.add_global_callback(self._update_presentation)
         
-        self._update_presentation(force=True)
+        self._update_presentation(force=True, init=True)
     
     def clear(self):
         if self.map_layer is not None:
@@ -84,7 +83,7 @@ class MapPointsLayerArtist(LayerArtist):
     def update(self):
         self._update_presentation(force=True)
 
-    def _update_presentation(self, force=False, **kwargs):
+    def _update_presentation(self, force=False, init=False, **kwargs):
         """
         We need to add a new boolean mode -- 
             heatmap: which is the default for large? datasets but does not have a lot of options
@@ -99,7 +98,8 @@ class MapPointsLayerArtist(LayerArtist):
             return
         
         changed = set() if force else self.pop_changed_properties()
-        #print(f"These variables have changed: {changed}")
+        print(f"These variables have changed: {changed}")
+        print(f"{force=}")
 
         #print(f"{self.state.color=}")
         
@@ -116,10 +116,15 @@ class MapPointsLayerArtist(LayerArtist):
             except ipyleaflet.LayerException:
                 pass
 
-        self.new_map_layer = self.map_layer.copy()
-        
+        if force or any(x in changed for x in ['lon_att','lat_att','color','size','size_scaling','alpha']):
+            self.new_map_layer = Heatmap(locations=self._coords)
+            self.new_map_layer.radius = self.map_layer.radius
+            self.new_map_layer.gradient = self.map_layer.gradient
+            self.new_map_layer.min_opacity = self.map_layer.min_opacity
+            self.new_map_layer.blur = self.map_layer.blur
+
         if force or any(x in changed for x in ['lon_att','lat_att']):
-            #print("Inside lat/lon if statement")
+            print("Inside lat/lon if statement")
             try:
                 lon = self.layer[self._viewer_state.lon_att]
             except IncompatibleAttribute:
@@ -137,38 +142,35 @@ class MapPointsLayerArtist(LayerArtist):
 
             locs = list(zip(lat,lon))
             self._coords = locs
-            self.map_layer.locations = self._coords
+            self.new_map_layer.locations = self._coords
 
         if force or 'color' in changed:
-            try:
-                self.map.remove_layer(self.map_layer)
-                color = color2hex(self.state.color)
-                self.map_layer.gradient = {0:color, 1:color} 
-                self.map.add_layer(self.map_layer)
-            except ipyleaflet.LayerException:
-                pass
+            print("Inside color if statement")
+
+            color = color2hex(self.state.color)
+            self.new_map_layer.gradient = {0:color, 1:color} 
                 
         if force or 'size' in changed or 'size_scaling' in changed:
-            try:
-                self.map.remove_layer(self.map_layer)
-                self.map_layer.radius = self.state.size * self.state.size_scaling
-                self.map_layer.blur = self.map_layer.radius/10
-                self.map.add_layer(self.map_layer)
-            except ipyleaflet.LayerException:
-                pass
+            print("Inside size if statement")
+
+            self.new_map_layer.radius = self.state.size * self.state.size_scaling
+            self.new_map_layer.blur = self.new_map_layer.radius/10
                 
         if force or 'alpha' in changed:
-            try:
-                self.map.remove_layer(self.map_layer)
-                self.map_layer.min_opacity = self.state.alpha
-                self.map.add_layer(self.map_layer)
-            except ipyleaflet.LayerException:
-                pass
+            print("Inside alpha if statement")
+
+            self.new_map_layer.min_opacity = self.state.alpha
 
         try:
+            print("Trying to swap out the layers")
             self.map.remove_layer(self.map_layer)
-            self.map.add_layer(self.map_layer)
-
+            self.map.add_layer(self.new_map_layer)
+        except ipyleaflet.LayerException:
+            print(self.new_map_layer)
+            pass
+        #self.map.substitute_layer(self.map_layer,self.new_map_layer)
+        #except ipyleaflet.LayerException:
+        #    pass
         
         self.enable()
 
