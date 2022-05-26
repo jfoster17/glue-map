@@ -170,9 +170,16 @@ class MapPointsLayerState(LayerState):
         if self._sync_markersize is not None:
             self._sync_markersize.stop_syncing()
     
+        if self._sync_color is not None:
+            self._sync_color.stop_syncing()
+
         if self.layer is not None:
             self.size = self.layer.style.markersize
             self._sync_markersize = keep_in_sync(self, 'size', self.layer.style, 'markersize')
+    
+            self.color = self.layer.style.color
+            self._sync_color = keep_in_sync(self, 'color', self.layer.style, 'color')
+
     
     def flip_size(self):
         self.size_lim_helper.flip_limits()
