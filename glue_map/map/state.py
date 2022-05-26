@@ -77,6 +77,14 @@ class MapRegionLayerState(LayerState):
 class MapPointsLayerState(LayerState):
     """
     A state class for displaying points on a map.
+    
+    We sort of want this class to be able to smoothly transition between
+    showing a heatmap or a set of individual markers. For instance,
+    we might have a large dataset. This requires us to have
+    a pretty flexible UI... Not really, just the first radio
+    button for the mode of display and then we reveal the appropriate features
+    
+    
     """
     
     layer = CallbackProperty()
@@ -164,7 +172,11 @@ class MapPointsLayerState(LayerState):
             self.color_att_helper.set_multiple_data([self.layer])
 
     def _layer_changed(self):
-            
+        """
+        Not sure I understand all the logic here
+        """
+        
+        
         super(MapPointsLayerState, self)._layer_changed()
     
         if self._sync_markersize is not None:

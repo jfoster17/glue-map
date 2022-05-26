@@ -93,13 +93,13 @@ class MapPointsLayerArtist(LayerArtist):
         This logic is rather buggy, and only sometimes responds to changes in attributes
         """
         
-        print(f"Updating layer_artist for points in {self.layer.label}")
+        #print(f"Updating layer_artist for points in {self.layer.label}")
 
         if self._removed:
             return
         
         changed = set() if force else self.pop_changed_properties()
-        print(f"These variables have changed: {changed}")
+        #print(f"These variables have changed: {changed}")
 
         #print(f"{self.state.color=}")
         
@@ -116,8 +116,10 @@ class MapPointsLayerArtist(LayerArtist):
             except ipyleaflet.LayerException:
                 pass
 
+        self.new_map_layer = self.map_layer.copy()
+        
         if force or any(x in changed for x in ['lon_att','lat_att']):
-            print("Inside lat/lon if statement")
+            #print("Inside lat/lon if statement")
             try:
                 lon = self.layer[self._viewer_state.lon_att]
             except IncompatibleAttribute:
@@ -145,6 +147,28 @@ class MapPointsLayerArtist(LayerArtist):
                 self.map.add_layer(self.map_layer)
             except ipyleaflet.LayerException:
                 pass
+                
+        if force or 'size' in changed or 'size_scaling' in changed:
+            try:
+                self.map.remove_layer(self.map_layer)
+                self.map_layer.radius = self.state.size * self.state.size_scaling
+                self.map_layer.blur = self.map_layer.radius/10
+                self.map.add_layer(self.map_layer)
+            except ipyleaflet.LayerException:
+                pass
+                
+        if force or 'alpha' in changed:
+            try:
+                self.map.remove_layer(self.map_layer)
+                self.map_layer.min_opacity = self.state.alpha
+                self.map.add_layer(self.map_layer)
+            except ipyleaflet.LayerException:
+                pass
+
+        try:
+            self.map.remove_layer(self.map_layer)
+            self.map.add_layer(self.map_layer)
+
         
         self.enable()
 
