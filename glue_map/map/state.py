@@ -72,19 +72,88 @@ class MapViewerState(ViewerState):
         self.lat_att_helper.set_multiple_data(self.layers_data)
 
 class MapRegionLayerState(LayerState):
-    pass
+    layer = CallbackProperty()
+    color = CallbackProperty()
+    size = CallbackProperty()
+    alpha = CallbackProperty()
 
+    color_mode = SelectionCallbackProperty(default_index=0)
+    cmap_att = SelectionCallbackProperty()
+    cmap_vmin = CallbackProperty()
+    cmap_vmax = CallbackProperty()
+    cmap = CallbackProperty()
+    cmap_mode = color_mode
+    
+    cmap_limits_cache = CallbackProperty({})
+    
+    name = "" #Name for display
+
+    def __init__(self, layer=None, **kwargs):
+ 
+        super(MapRegionLayerState, self).__init__(layer=layer)
+        
+        self._sync_color = keep_in_sync(self, 'color', self.layer.style, 'color')
+        self._sync_alpha = keep_in_sync(self, 'alpha', self.layer.style, 'alpha')
+        
+        self.color = self.layer.style.color
+        self.alpha = self.layer.style.alpha
+        
+        self.cmap_att_helper = ComponentIDComboHelper(self, 'cmap_att',
+                                                      numeric=True,
+                                                      categorical=False)
+        
+        self.cmap_lim_helper = StateAttributeLimitsHelper(self, attribute='cmap_att',
+                                                          lower='cmap_vmin', upper='cmap_vmax',
+                                                          cache=self.cmap_limits_cache)
+        
+        self.add_callback('layer', self._on_layer_change)
+        if layer is not None:
+            self._on_layer_change()
+        
+        self.cmap = colormaps.members[0][1]
+        
+        MapRegionLayerState.color_mode.set_choices(self,['Fixed', 'Linear'])
+        
+        if isinstance(layer, Subset):
+            self.name = f"{self.name} {(self.layer.data.label)}"
+        
+        self.update_from_dict(kwargs)
+        
+    def _on_layer_change(self, layer=None):
+        with delay_callback(self, 'cmap_vmin', 'cmap_vmax'):
+            if self.layer is None:
+                self.cmap_att_helper.set_multiple_data([])
+            else:
+                self.cmap_att_helper.set_multiple_data([self.layer])
+
+    def _layer_changed(self):
+        """
+        Not sure I understand all the logic here
+        """
+        super(MapRegionLayerState, self)._layer_changed()
+        
+        if self._sync_color is not None:
+            self._sync_color.stop_syncing()
+    
+        if self.layer is not None:
+            self.color = self.layer.style.color
+            self._sync_color = keep_in_sync(self, 'color', self.layer.style, 'color')
+
+    def flip_cmap(self):
+        self.cmap_lim_helper.flip_limits()
+    
+    @property
+    def viewer_state(self):
+        return self._viewer_state
+    
+    @viewer_state.setter
+    def viewer_state(self, viewer_state):
+        self._viewer_state = viewer_state
+
+        
 class MapPointsLayerState(LayerState):
     """
     A state class for displaying points on a map.
-    
-    We sort of want this class to be able to smoothly transition between
-    showing a heatmap or a set of individual markers. For instance,
-    we might have a large dataset. This requires us to have
-    a pretty flexible UI... Not really, just the first radio
-    button for the mode of display and then we reveal the appropriate features
-    
-    
     """
     
     layer = CallbackProperty()
@@ -168,11 +237,11 @@ class MapPointsLayerState(LayerState):
                 self.cmap_att_helper.set_multiple_data([self.layer])
                 self.size_att_helper.set_multiple_data([self.layer])
         
-    def _on_attribute_change(self, *args):
-        #print("In _on_attribute_change")
-        #print(self.layer)
-        if self.layer is not None:
-            self.color_att_helper.set_multiple_data([self.layer])
+    #def _on_attribute_change(self, *args):
+    #    #print("In _on_attribute_change")
+    #    #print(self.layer)
+    #    if self.layer is not None:
+    #        self.color_att_helper.set_multiple_data([self.layer])
 
     def _layer_changed(self):
         """

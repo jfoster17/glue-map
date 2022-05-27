@@ -170,23 +170,21 @@ class RectangleSelect(IpyLeafletSelectionTool):
 
     def activate(self):
         """
-        This gets the information we want, but we need to disable dragging and we need to 
-        draw a rectangle on the map. The DrawControl stuff in ipyleaflet does all this
-        
+        self.viewer.mapfigure.dragging = False 
+        This SHOULD work, but it does not
+        https://github.com/jupyter-widgets/ipyleaflet/issues/711#issuecomment-704311279
+        Until then, we have to hold down SHIFT
         """
-        #self.viewer.mapfigure.dragging = False #This SHOULD work, but it does not
-        #https://github.com/jupyter-widgets/ipyleaflet/issues/711#issuecomment-704311279
-        #Until then, we have to hold down SHIFT
         def map_interaction(**kwargs):
             #print(kwargs)
             if kwargs['type'] == 'mousedown':
-                print(f'mousedown {kwargs["coordinates"]}')
+                #print(f'mousedown {kwargs["coordinates"]}')
                 self.start_coords = kwargs['coordinates']
                 self.rect = Rectangle(bounds=(self.start_coords, kwargs['coordinates']),
                                         weight=1, fill_opacity=0, dash_array= '5, 5', color='gray')
                 self.viewer.map.add_layer(self.rect)
             elif kwargs['type'] == 'mouseup' and self.start_coords:
-                print(f'mouseup {kwargs["coordinates"]}')
+                #print(f'mouseup {kwargs["coordinates"]}')
                 self.end_coords = kwargs['coordinates']
                 
                 xmin = self.end_coords[1]

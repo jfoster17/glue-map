@@ -87,6 +87,18 @@ class PointsLayerStateWidget(VBox):
         self.layout.width='300px' #Gets rid of scrollbars on my setup
 
 
+class RegionLayerStateWidget(VBox):
+    def __init__(self, layer_state):
+        self.state = layer_state
+        self.color_widgets = Color(state=self.state)
+        self.widget_alpha = ipywidgets.FloatSlider(description='opacity', min=0, max=1,
+                                                  value=self.state.alpha)
+        link((self.state, 'alpha'), (self.widget_alpha, 'value'))
+        
+        super().__init__([self.color_widgets, self.widget_alpha])
+        self.layout.width='300px' #Gets rid of scrollbars on my setup
+
+
 class IPyLeafletMapViewer(IPyWidgetView):
     """
     A glue viewer to show an `ipyleaflet` Map viewer with data.
@@ -106,7 +118,7 @@ class IPyLeafletMapViewer(IPyWidgetView):
     _state_cls = MapViewerState
     _options_cls = MapViewerStateWidget 
     _layer_style_widget_cls = {
-        MapRegionLayerArtist: PointsLayerStateWidget, # Do our own RegionLayerStateWidget
+        MapRegionLayerArtist: RegionLayerStateWidget, # Do our own RegionLayerStateWidget
         MapPointsLayerArtist: PointsLayerStateWidget,
     }
 
