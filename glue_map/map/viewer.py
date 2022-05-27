@@ -98,7 +98,7 @@ class IPyLeafletMapViewer(IPyWidgetView):
     
     
     LABEL = 'Map Viewer (ipleaflet)'
-    _map = None # The ipyleaflet Map object
+    map = None # The ipyleaflet Map object
     
     allow_duplicate_data = True
     allow_duplicate_subset = False
@@ -118,15 +118,15 @@ class IPyLeafletMapViewer(IPyWidgetView):
 
         self._initialize_map()
         
-        link((self.state, 'zoom_level'), (self._map, 'zoom'), float_or_none)
-        link((self.state, 'center'), (self._map, 'center'))
+        link((self.state, 'zoom_level'), (self.map, 'zoom'), float_or_none)
+        link((self.state, 'center'), (self.map, 'center'))
 
         self.state.add_global_callback(self._update_map)
         self._update_map(force=True)
         self.create_layout()
         
     def _initialize_map(self):
-        self._map = ipyleaflet.Map(basemap=self.state.basemap, prefer_canvas=True)
+        self.map = ipyleaflet.Map(basemap=self.state.basemap, prefer_canvas=True)
         
     def _update_map(self, force=False, **kwargs):
         if force or 'basemap' in kwargs:
@@ -134,7 +134,7 @@ class IPyLeafletMapViewer(IPyWidgetView):
     
     def get_layer_artist(self, cls, layer=None, layer_state=None):
         """Need to add a reference to the ipyleaflet Map object"""
-        return cls(self._map, self.state, layer=layer, layer_state=layer_state)
+        return cls(self.map, self.state, layer=layer, layer_state=layer_state)
     
     def get_data_layer_artist(self, layer=None, layer_state=None):
         if get_geom_type(layer) == 'regions':
@@ -143,7 +143,7 @@ class IPyLeafletMapViewer(IPyWidgetView):
             cls = MapPointsLayerArtist
         else:
             raise ValueErorr(f"IPyLeafletMapViewer does not know how to render the data in {layer.label}")
-        return cls(self.state, map=self._map, layer=layer, layer_state=layer_state)
+        return cls(self.state, map=self.map, layer=layer, layer_state=layer_state)
         
     def get_subset_layer_artist(self, layer=None, layer_state=None):
         return self.get_data_layer_artist(layer=layer, layer_state=layer_state)
@@ -151,7 +151,7 @@ class IPyLeafletMapViewer(IPyWidgetView):
     
     @property
     def figure_widget(self):
-        return self._map
+        return self.map
     
     def redraw(self):
         pass

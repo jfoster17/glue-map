@@ -184,7 +184,7 @@ class RectangleSelect(IpyLeafletSelectionTool):
                 self.start_coords = kwargs['coordinates']
                 self.rect = Rectangle(bounds=(self.start_coords, kwargs['coordinates']),
                                         weight=1, fill_opacity=0, dash_array= '5, 5', color='gray')
-                self.viewer.mapfigure.add_layer(self.rect)
+                self.viewer.map.add_layer(self.rect)
             elif kwargs['type'] == 'mouseup' and self.start_coords:
                 print(f'mouseup {kwargs["coordinates"]}')
                 self.end_coords = kwargs['coordinates']
@@ -203,7 +203,7 @@ class RectangleSelect(IpyLeafletSelectionTool):
                 
                 self.start_coords = None
                 time.sleep(0.1)
-                self.viewer.mapfigure.remove_layer(self.rect)
+                self.viewer.map.remove_layer(self.rect)
             elif kwargs['type'] == 'mousemove' and self.start_coords:
                 new_rect = Rectangle(bounds=(self.start_coords, kwargs['coordinates']),
                                         weight=1, fill_opacity=0.1, dash_array= '5, 5', color='gray', fill_color='gray')
@@ -228,13 +228,13 @@ class RectangleSelect(IpyLeafletSelectionTool):
                 #It is possible that 
                 #self.viewer.apply_subset_state(subset_state, override_mode=None) 
                 
-                self.viewer.mapfigure.substitute_layer(self.rect,new_rect) 
+                self.viewer.map.substitute_layer(self.rect,new_rect) 
                 self.rect = new_rect
             #print(kwargs)
-        self.viewer.mapfigure.on_interaction(map_interaction)
+        self.viewer.map.on_interaction(map_interaction)
 
     def deactivate(self):
-        self.viewer.mapfigure._interaction_callbacks = CallbackDispatcher()
+        self.viewer.map._interaction_callbacks = CallbackDispatcher()
         #self.viewer.mapfigure.dragging = True
         
         
