@@ -234,13 +234,13 @@ class MapRegionLayerArtist(LayerArtist):
         """
         """
         
-        print(f"Updating layer_artist for points in {self.layer.label}")
+        #print(f"Updating layer_artist for points in {self.layer.label}")
     
         if self._removed:
             return
         
         changed = set() if force else self.pop_changed_properties()
-        print(f"These variables have changed: {changed}")
+        #print(f"These variables have changed: {changed}")
     
         #print(f"{self.state.color=}")
         
@@ -262,7 +262,7 @@ class MapRegionLayerArtist(LayerArtist):
             # We try to get lat and lon attributes because even though
             # we do not need them for display, we want to ensure
             # that the attributes are linked with other layers
-            print("Inside lat/lon if statement")
+            #print("Inside lat/lon if statement")
             try:
                 lon = self.layer[self._viewer_state.lon_att]
             except IncompatibleAttribute:
@@ -308,7 +308,7 @@ class MapRegionLayerArtist(LayerArtist):
                     feature_name = feature["id"]
                     return {'fillColor': color2hex(self.state.cmap(mapping[feature_name]))}
                 
-                print(f"{mapping=}")
+                #print(f"{mapping=}")
                 old_style = self.map_layer.style
                 if 'color' in old_style:
                     del old_style['color']
