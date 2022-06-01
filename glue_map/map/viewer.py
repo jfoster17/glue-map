@@ -1,78 +1,175 @@
-from glue.core.subset import roi_to_subset_state
-from .state import MapViewerState
-
-from .layer_artist import IPyLeafletMapLayerArtist
-from .state_widgets.layer_map import MapLayerStateWidget
-from .state_widgets.viewer_map import MapViewerStateWidget
-
-from glue.core.roi import PointROI
-
-from glue.core.subset import roi_to_subset_state
-from glue.core.command import ApplySubsetState
-
-from echo.callback_container import CallbackContainer
-
-from glue_jupyter.view import IPyWidgetView
-from glue_jupyter.link import link, dlink, on_change
-from glue_jupyter.utils import float_or_none, debounced, get_ioloop
-
 import ipyleaflet
 
+from glue.logger import logger
+from glue.utils import color2hex
 
-__all__ = ['IPyLeafletMapView']
+from glue_jupyter.view import IPyWidgetView
+from glue_jupyter.link import link, dlink
+from glue_jupyter.utils import float_or_none
 
 
-class IPyLeafletMapView(IPyWidgetView):
+from .state import MapViewerState
+from .layer_artist import MapRegionLayerArtist, MapPointsLayerArtist
+from .state_widgets.layer_map import MapLayerStateWidget
+from .state_widgets.viewer_map import MapViewerStateWidget
+from .utils import get_geom_type
 
+from glue_jupyter.widgets import LinkedDropdown, Color, Size
+
+import ipywidgets
+from ipywidgets import HBox, Tab, VBox, FloatSlider, FloatText
+
+__all__ = ['IPyLeafletMapViewer']
+
+
+class SimpleColor(VBox):
+    def __init__(self, state, **kwargs):
+        super(SimpleColor, self).__init__(**kwargs)
+        self.state = state
+        self.widget_color = ipywidgets.ColorPicker(description='color')
+        link((self.state, 'color'), (self.widget_color, 'value'), color2hex)
+        self.children = (self.widget_color,)
+
+class SimpleSize(VBox):
+    def __init__(self, state, **kwargs):
+        super(SimpleSize, self).__init__(**kwargs)
+        self.state = state
+        
+        self.widget_size = ipywidgets.FloatSlider(description='size', min=0, max=10,
+                                               value=self.state.size)
+        link((self.state, 'size'), (self.widget_size, 'value'))
+        self.widget_scaling = ipywidgets.FloatSlider(description='scale', min=0, max=2,
+                                                  value=self.state.size_scaling)
+        link((self.state, 'size_scaling'), (self.widget_scaling, 'value'))
+        
+        self.layout.width='300px' #Gets rid of scrollbars on my setup
+        self.children = (self.widget_size, self.widget_scaling)
+
+
+class PointsLayerStateWidget(VBox):
+    def __init__(self, layer_state):
+        self.state = layer_state
+        
+        display_mode_options = type(self.state).display_mode.get_choice_labels(self.state)
+        self.widget_display_mode = ipywidgets.RadioButtons(options=display_mode_options,
+                                                     description='display mode')
+        link((self.state, 'display_mode'), (self.widget_display_mode, 'value'))
+        
+        
+        self.color_widgets = Color(state=self.state)
+        self.size_widgets = Size(state=self.state)
+    
+        self.color_widgets.layout.width = '300px'
+        self.size_widgets.layout.width = '300px'
+        self.size_widgets.widget_size_vmax.layout.width = '250px'
+        self.size_widgets.widget_size_vmin.layout.width = '250px'
+        self.size_widgets.widget_size_vmax.description = 'size max'
+        
+        #self.simple_color_widgets = SimpleColor(state=self.state)
+        self.simple_size_widgets = SimpleSize(state=self.state)
+    
+        self.widget_alpha = ipywidgets.FloatSlider(description='opacity', min=0, max=1,
+                                                  value=self.state.alpha)
+        link((self.state, 'alpha'), (self.widget_alpha, 'value'))
+
+    
+        # Only show full color_widget for Individual Points mode
+        dlink((self.widget_display_mode, 'value'), (self.color_widgets.layout, 'display'),
+          lambda value: None if value == display_mode_options[1] else 'none')
+        # Only show full size_widget for Individual Points mode
+        dlink((self.widget_display_mode, 'value'), (self.size_widgets.layout, 'display'),
+          lambda value: None if value == display_mode_options[1] else 'none')
+
+        ## Only show simple color_widget for Individual Points mode
+        #dlink((self.widget_display_mode, 'value'), (self.simple_color_widgets.layout, 'display'),
+        #    lambda value: None if value == display_mode_options[0] else 'none')
+
+        # Only show simple size_widget for Individual Points mode
+        dlink((self.widget_display_mode, 'value'), (self.simple_size_widgets.layout, 'display'),
+            lambda value: None if value == display_mode_options[0] else 'none')
+        
+        super().__init__([self.widget_display_mode, self.size_widgets, self.color_widgets, 
+                          self.simple_size_widgets, self.widget_alpha])
+        self.layout.width='300px' #Gets rid of scrollbars on my setup
+
+
+class RegionLayerStateWidget(VBox):
+    def __init__(self, layer_state):
+        self.state = layer_state
+        self.color_widgets = Color(state=self.state)
+        self.widget_alpha = ipywidgets.FloatSlider(description='opacity', min=0, max=1,
+                                                  value=self.state.alpha)
+        link((self.state, 'alpha'), (self.widget_alpha, 'value'))
+        
+        super().__init__([self.color_widgets, self.widget_alpha])
+        self.layout.width='300px' #Gets rid of scrollbars on my setup
+
+
+class IPyLeafletMapViewer(IPyWidgetView):
+    """
+    A glue viewer to show an `ipyleaflet` Map viewer with data.
+    
+    The data can either be regions (using a MapRegionLayerArtist)
+    or point-like data (using a MapPointsLayerArtist)
+    
+    """
+    
+    
+    LABEL = 'Map Viewer (ipleaflet)'
+    map = None # The ipyleaflet Map object
+    
     allow_duplicate_data = True
     allow_duplicate_subset = False
-    _default_mouse_mode_cls = None
     
-
     _state_cls = MapViewerState
     _options_cls = MapViewerStateWidget 
-    _data_artist_cls = IPyLeafletMapLayerArtist
-    _subset_artist_cls = IPyLeafletMapLayerArtist
-    _layer_style_widget_cls = MapLayerStateWidget
+    _layer_style_widget_cls = {
+        MapRegionLayerArtist: RegionLayerStateWidget, # Do our own RegionLayerStateWidget
+        MapPointsLayerArtist: PointsLayerStateWidget,
+    }
 
     tools = ['ipyleaflet:pointselect','ipyleaflet:rectangleselect']
 
     def __init__(self, session, state=None):
-        
-        
-        #print("Inside init for the viewer")
-        super(IPyLeafletMapView, self).__init__(session, state=state)
-        
-        self.mapfigure = ipyleaflet.Map(basemap=self.state.basemap, prefer_canvas=True)
-        
-        link((self.state, 'zoom_level'), (self.mapfigure, 'zoom'), float_or_none)
-        link((self.state, 'center'), (self.mapfigure, 'center'))
-        
-        control = ipyleaflet.LayersControl(position='bottomleft')
-        self.mapfigure.add_control(control)
-        #dlink((self.state, 'basemap'), (self.mapfigure, 'basemap')) #Map object does not have a basemap thing that stays in sync
-        
-        #We can take care of it manually like this:
-        #https://github.com/jupyter-widgets/ipyleaflet/blob/caaddb8150e628f711fbfa2a11a29f70e9d84ef5/examples/DropdownControl.ipynb
-        
-        #on_change([(self.state, 'basemap')])(self._change_basemap)
+        logger.debug("Creating a new Viewer...")
+        super(IPyLeafletMapViewer, self).__init__(session, state=state)
 
-        #We would need to look for layer? changes?
+        self._initialize_map()
         
-        #self.state.remove_callback('layers', self._sync_layer_artist_container)
-        #self.state.add_callback('layers', self._sync_layer_artist_container, priority=10000)
-        
+        link((self.state, 'zoom_level'), (self.map, 'zoom'), float_or_none)
+        link((self.state, 'center'), (self.map, 'center'))
+
+        self.state.add_global_callback(self._update_map)
+        self._update_map(force=True)
         self.create_layout()
         
-    #def _change_basemap(self):
-    #    print('In Viewer _change_basemap')
+    def _initialize_map(self):
+        self.map = ipyleaflet.Map(basemap=self.state.basemap, prefer_canvas=True)
         
+    def _update_map(self, force=False, **kwargs):
+        if force or 'basemap' in kwargs:
+            pass #Change basemap
+    
     def get_layer_artist(self, cls, layer=None, layer_state=None):
-        return cls(self.mapfigure, self.state, layer=layer, layer_state=layer_state)
+        """Need to add a reference to the ipyleaflet Map object"""
+        return cls(self.map, self.state, layer=layer, layer_state=layer_state)
+    
+    def get_data_layer_artist(self, layer=None, layer_state=None):
+        if get_geom_type(layer) == 'regions':
+            cls = MapRegionLayerArtist
+        elif get_geom_type(layer) == 'points':
+            cls = MapPointsLayerArtist
+        else:
+            raise ValueErorr(f"IPyLeafletMapViewer does not know how to render the data in {layer.label}")
+        return cls(self.state, map=self.map, layer=layer, layer_state=layer_state)
+        
+    def get_subset_layer_artist(self, layer=None, layer_state=None):
+        return self.get_data_layer_artist(layer=layer, layer_state=layer_state)
+    
     
     @property
     def figure_widget(self):
-        return self.mapfigure
+        return self.map
     
     def redraw(self):
         pass

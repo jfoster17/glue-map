@@ -5,9 +5,11 @@ from glue.core import BaseData, Subset, Data
 from echo import delay_callback
 from glue.viewers.common.state import ViewerState, LayerState
 
-from echo import CallbackProperty, SelectionCallbackProperty
+from echo import CallbackProperty, SelectionCallbackProperty, keep_in_sync
 
 from glue.core.exceptions import IncompatibleAttribute, IncompatibleDataException
+from glue.core.state_objects import StateAttributeLimitsHelper
+
 from glue.core.data_combo_helper import ComponentIDComboHelper, ComboHelper
 from glue.utils import defer_draw, datetime64_to_mpl
 from glue.utils.decorators import avoid_circular
@@ -19,7 +21,7 @@ from glue.core.data import Subset
 
 from ..data import GeoRegionData
 
-__all__ = ['MapViewerState', 'MapLayerState']
+__all__ = ['MapViewerState', 'MapRegionLayerState', 'MapPointsLayerState']
 
 
 class MapViewerState(ViewerState):
@@ -34,9 +36,6 @@ class MapViewerState(ViewerState):
         The attribute to display as longitude. For choropleth-type data this is a special coordinate component.
     
     """
-
-    #center = CallbackProperty((40,-100),docstring='(Lon, Lat) at the center of the map')
-    #zoom_level = CallbackProperty(4, docstring='Zoom level for the map')
     
     center = CallbackProperty((40, -100),docstring='(Lon, Lat) at the center of the map')
     zoom_level = CallbackProperty(4, docstring='Zoom level for the map')
@@ -44,9 +43,6 @@ class MapViewerState(ViewerState):
     lon_att = SelectionCallbackProperty(default_index=1, docstring='The attribute to display as longitude')
     lat_att = SelectionCallbackProperty(default_index=0, docstring='The attribute to display as latitude')
     
-    
-    #basemap = CallbackProperty(basemaps.OpenStreetMap.Mapnik, docstring='Basemap to display')
-
     basemap = CallbackProperty(basemaps.Esri.WorldImagery)
 
     def __init__(self, **kwargs):
@@ -67,184 +63,215 @@ class MapViewerState(ViewerState):
                                                     categorical=False)
         
         
-        self.add_callback('layers', self._layers_changed)
-        #self.add_callback('basemap', self._basemap_changed)
-        #self.add_callback('basemap', self._basemap_changed)
-        #print(f'layers={self.layers}')
-        #print("Trying to update_from_dict...")
+        self.add_callback('layers', self._on_layers_changed)
+        self._on_layers_changed()
         self.update_from_dict(kwargs)
 
-        #self.mapfigure = None
-    
-    
-    #def _basemap_changed(self, basemap):
-    #    """
-    #    The syntax to update a the basemap is sort of funky but this sort of thing
-    #    could work if we attach a callback to the layers (first layer?) of the map
-    #    """
-    #    print(f"Called _basemap_changed with {basemap}")
-    #    if (self.map is not None):# and (len(self.map.layers) > 0):
-    #        print(f"self.map is not None")
-    #        
-    #        self.map.layers=[basemap_to_tiles(basemap)]
-        
-    def _on_attribute_change(self):
-        pass
-
-    def reset_limits(self):
-        pass
-
-    def _update_priority(self, name):
-        pass
-        
-    def flip_x(self):
-        pass
-
-    @defer_draw
-    def _layers_changed(self, *args):
+    def _on_layers_changed(self, *args):
         self.lon_att_helper.set_multiple_data(self.layers_data)
         self.lat_att_helper.set_multiple_data(self.layers_data)
 
+class MapRegionLayerState(LayerState):
+    layer = CallbackProperty()
+    color = CallbackProperty()
+    size = CallbackProperty()
+    alpha = CallbackProperty()
 
-class MapLayerState(LayerState):
-    """
-    A state class that includes all the attributes for layers on a map.
+    color_mode = SelectionCallbackProperty(default_index=0)
+    cmap_att = SelectionCallbackProperty()
+    cmap_vmin = CallbackProperty()
+    cmap_vmax = CallbackProperty()
+    cmap = CallbackProperty()
+    cmap_mode = color_mode
     
-    This should have attributes for:
+    cmap_limits_cache = CallbackProperty({})
     
-    
-    Parameters
-    ----------
-    color_att : `~glue.core.component_id.ComponentID`
-        The values of this attribute determine the color of points or regions
-    colormap : string
-        A string (because colormap object themselves cannot travel through json) describing the colormap to 
-        apply to color_att values.                
-    visible : boolean
-    
-    color_steps (whether to turn a continuous variable into a stepped display) <-- less important
-    
-    
-    mapviewer.layers[0].state.color is what is set (poorly) in the GUI controls. Currently this does not display correctly or make it easy to update.
-    Does this actually work in scatter plot?
-    
-    """
-    
-    # Color from ScatterLayerState. We probably want all? or some of this
-    
-    #cmap_mode = DDSCProperty(docstring="Whether to use color to encode an attribute")
-    #cmap_att = DDSCProperty(docstring="The attribute to use for the color")
-    #cmap_vmin = DDCProperty(docstring="The lower level for the colormap")
-    #cmap_vmax = DDCProperty(docstring="The upper level for the colormap")
-    #cmap = DDCProperty(docstring="The colormap to use (when in colormap mode)")
+    name = "" #Name for display
 
-    
-    color_att = SelectionCallbackProperty(docstring='The attribute to display as a choropleth')
-    
-    colormap = SelectionCallbackProperty(docstring='Colormap used to display this layer')
-
-    value_min = None
-    value_max = None
-    
-    #color = None
-    
-    large_data = False 
-
-    name = "" #Name for display in the 
-    def __init__(self, layer=None, viewer_state=None, **kwargs): #Calling this init is fubar
-            
-        super(MapLayerState, self).__init__()
+    def __init__(self, layer=None, **kwargs):
+ 
+        super(MapRegionLayerState, self).__init__(layer=layer)
         
-        self.color_att_helper = ComponentIDComboHelper(self, 'color_att', numeric=True, categorical=False)
+        self._sync_color = keep_in_sync(self, 'color', self.layer.style, 'color')
+        self._sync_alpha = keep_in_sync(self, 'alpha', self.layer.style, 'alpha')
         
-        #To be fancy we should determine the type of color_att and set the colormap choices based on that
-        #Except ipyleaflet seems to have a limited set of colormaps -- and are any categorical?
+        self.color = self.layer.style.color
+        self.alpha = self.layer.style.alpha
         
-        self.colormap_helper = ComboHelper(self, 'colormap')
-        self.colormap_helper.choices = ['viridis','YlOrRd_04','PuBuGn_04','PuOr_04','Purples_09','YlGnBu_09','Blues_08','PuRd_06']
-        self.colormap_helper.selection = 'viridis'
-        #self.add_callback('color_att', self._on_attribute_change)
+        self.cmap_att_helper = ComponentIDComboHelper(self, 'cmap_att',
+                                                      numeric=True,
+                                                      categorical=False)
         
-        self.add_callback('layer', self._layer_changed)
-
-        #self.cmap = 'viridis'#colormaps.members[0][1]
-        #print(f'cmap = {self.cmap}')
-        #self.add_callback('colormap', self._on_colormap_change) Do we need this, actually?
+        self.cmap_lim_helper = StateAttributeLimitsHelper(self, attribute='cmap_att',
+                                                          lower='cmap_vmin', upper='cmap_vmax',
+                                                          cache=self.cmap_limits_cache)
         
-        #print(layer)
-        self.layer = layer #This is critical!
-        # We distinguish between layers that plot regions and those that plot points
-        # Glue can only plot region-type data for datasets stored as GeoData objects
-        #if isinstance(self.layer, GeoRegionData):
+        self.add_callback('layer', self._on_layer_change)
+        if layer is not None:
+            self._on_layer_change()
         
-        self._get_geom_type()
-        #if self.viewer_state is not None:
-        #    self._on_attribute_change()
-        #self._on_attribute_change()
-        #self.color_att_helper.set_multiple_data([layer])
-        #self.add_callback('layers', self._update_attribute)
+        self.cmap = colormaps.members[0][1]
         
-        #if layer is not None:
-        #    self._update_attribute()
-        #self.c_geo_metadata = None
-       # self.update_from_dict(kwargs)
+        MapRegionLayerState.color_mode.set_choices(self,['Fixed', 'Linear'])
+        
         if isinstance(layer, Subset):
-            #print("Layer is a Subset")
             self.name = f"{self.name} {(self.layer.data.label)}"
         
-        #self.ids = self.layer['ids']
-
-    #def update(self, *args):
-    #    print("In update function...")
-
-    #def _update_attribute(self, *args):
-    #    pass
-        #if self.layer is not None:
-        #    self.color_att_helper.set_multiple_data([self.layer])
-        #    #self.color_att = self.layer.main_components[0]
-        #    print(self.layer)
-        #    print(self.color_att_helper._data)
-        #    self.c_geo_metadata = self.color_att_helper._data[0].meta['geo']
+        self.update_from_dict(kwargs)
         
-    def _get_geom_type(self):
-        if self.layer is not None:
-            #print(f"layer type is: {type(self.layer)}")
-            if isinstance(self.layer, Data):
-                #print(f"geom_type is: {self.layer.geometry.geom_type}")
-                try:
-                    geom_type = self.layer.geometry.geom_type
-                except AttributeError:
-                    self.layer_type = 'points'
+    def _on_layer_change(self, layer=None):
+        with delay_callback(self, 'cmap_vmin', 'cmap_vmax'):
+            if self.layer is None:
+                self.cmap_att_helper.set_multiple_data([])
             else:
-                #print(f"geom_type is: {self.layer.data.geometry.geom_type}")
-                try:
-                    geom_type = self.layer.data.geometry.geom_type
-                except AttributeError:
-                    self.layer_type = 'points'
-                
-            try:
-                self.layer_type = 'regions'
-                if (geom_type == 'Point').all():
-                    self.layer_type = 'points'
-                elif (geom_type == 'LineString').all():
-                    self.layer_type = 'lines'
-            except:
-                self.layer_type = 'points'
+                self.cmap_att_helper.set_multiple_data([self.layer])
+
+    def _layer_changed(self):
+        """
+        Not sure I understand all the logic here
+        """
+        super(MapRegionLayerState, self)._layer_changed()
+        
+        if self._sync_color is not None:
+            self._sync_color.stop_syncing()
+    
+        if self.layer is not None:
+            self.color = self.layer.style.color
+            self._sync_color = keep_in_sync(self, 'color', self.layer.style, 'color')
+
+    def flip_cmap(self):
+        self.cmap_lim_helper.flip_limits()
+    
+    @property
+    def viewer_state(self):
+        return self._viewer_state
+    
+    @viewer_state.setter
+    def viewer_state(self, viewer_state):
+        self._viewer_state = viewer_state
+
+        
+class MapPointsLayerState(LayerState):
+    """
+    A state class for displaying points on a map.
+    """
+    
+    layer = CallbackProperty()
+    color = CallbackProperty()
+    size = CallbackProperty()
+    alpha = CallbackProperty()
+    
+    display_mode = SelectionCallbackProperty(default_index=0)
+    
+    size_mode = SelectionCallbackProperty(default_index=0)
+    size = CallbackProperty()
+    size_att = SelectionCallbackProperty()
+    size_vmin = CallbackProperty()
+    size_vmax = CallbackProperty()
+    size_scaling = CallbackProperty(1)
+    
+    color_mode = SelectionCallbackProperty(default_index=0)
+    cmap_att = SelectionCallbackProperty()
+    cmap_vmin = CallbackProperty()
+    cmap_vmax = CallbackProperty()
+    cmap = CallbackProperty()
+    cmap_mode = color_mode
+    
+    size_limits_cache = CallbackProperty({})
+    cmap_limits_cache = CallbackProperty({})
+
+    name = "" #Name for display
+    
+    def __init__(self, layer=None, **kwargs):
+        
+        self._sync_markersize = None
+
+        super(MapPointsLayerState, self).__init__(layer=layer)
+        
+        self._sync_color = keep_in_sync(self, 'color', self.layer.style, 'color')
+        self._sync_alpha = keep_in_sync(self, 'alpha', self.layer.style, 'alpha')
+        self._sync_size = keep_in_sync(self, 'size', self.layer.style, 'markersize')
+
+        self.color = self.layer.style.color
+        self.size = self.layer.style.markersize
+        self.alpha = self.layer.style.alpha
+
+        self.size_att_helper = ComponentIDComboHelper(self, 'size_att',
+                                                      numeric=True,
+                                                      categorical=False)
+        self.cmap_att_helper = ComponentIDComboHelper(self, 'cmap_att',
+                                                      numeric=True,
+                                                      categorical=False)
+
+        self.size_lim_helper = StateAttributeLimitsHelper(self, attribute='size_att',
+                                                          lower='size_vmin', upper='size_vmax',
+                                                          cache=self.size_limits_cache)
+        
+        self.cmap_lim_helper = StateAttributeLimitsHelper(self, attribute='cmap_att',
+                                                          lower='cmap_vmin', upper='cmap_vmax',
+                                                          cache=self.cmap_limits_cache)
+        
+        self.add_callback('layer', self._on_layer_change)
+        if layer is not None:
+            self._on_layer_change()
+
+        self.cmap = colormaps.members[0][1]
+
+        MapPointsLayerState.display_mode.set_choices(self,['Heatmap', 'Individual Points'])
+        MapPointsLayerState.color_mode.set_choices(self,['Fixed', 'Linear'])
+        MapPointsLayerState.size_mode.set_choices(self,['Fixed', 'Linear'])
+
+        if isinstance(layer, Subset):
+            self.name = f"{self.name} {(self.layer.data.label)}"
+        
+        self.update_from_dict(kwargs)
+
             
         
-    def _layer_changed(self, *args):
-        if self.layer is not None:
-            self.color_att_helper.set_multiple_data([self.layer])
-            self.name = self.layer.label
-            self._get_geom_type()
+    def _on_layer_change(self, layer=None):
+        with delay_callback(self, 'cmap_vmin', 'cmap_vmax', 'size_vmin', 'size_vmax'):
+            if self.layer is None:
+                self.cmap_att_helper.set_multiple_data([])
+                self.size_att_helper.set_multiple_data([])
+            else:
+                self.cmap_att_helper.set_multiple_data([self.layer])
+                self.size_att_helper.set_multiple_data([self.layer])
         
-    def _on_attribute_change(self, *args):
-        #print("In _on_attribute_change")
-        #print(self.layer)
+    #def _on_attribute_change(self, *args):
+    #    #print("In _on_attribute_change")
+    #    #print(self.layer)
+    #    if self.layer is not None:
+    #        self.color_att_helper.set_multiple_data([self.layer])
+
+    def _layer_changed(self):
+        """
+        Not sure I understand all the logic here
+        """
+        
+        
+        super(MapPointsLayerState, self)._layer_changed()
+    
+        if self._sync_markersize is not None:
+            self._sync_markersize.stop_syncing()
+    
+        if self._sync_color is not None:
+            self._sync_color.stop_syncing()
+
         if self.layer is not None:
-            self.color_att_helper.set_multiple_data([self.layer])
+            self.size = self.layer.style.markersize
+            self._sync_markersize = keep_in_sync(self, 'size', self.layer.style, 'markersize')
+    
+            self.color = self.layer.style.color
+            self._sync_color = keep_in_sync(self, 'color', self.layer.style, 'color')
 
+    
+    def flip_size(self):
+        self.size_lim_helper.flip_limits()
+    
+    def flip_cmap(self):
+        self.cmap_lim_helper.flip_limits()
 
+    
     @property
     def viewer_state(self):
         return self._viewer_state
@@ -253,11 +280,3 @@ class MapLayerState(LayerState):
     def viewer_state(self, viewer_state):
         self._viewer_state = viewer_state
 
-#class MapSubsetLayerState(LayerState):
-#    """
-#    Currently this does not do anything
-#    """
-#    def __init__(self, *args, **kwargs):
-#    #self.uuid = str(uuid.uuid4())
-#        super(MapSubsetLayerState, self).__init__(*args, **kwargs)
-    

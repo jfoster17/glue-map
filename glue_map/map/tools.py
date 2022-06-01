@@ -136,8 +136,8 @@ class PointSelect(IpyLeafletSelectionTool):
         #Get current? layer geo_json object
         #print(self.viewer.layers[0])
         #layer_artist._click_callbacks = CallbackDispatcher() 
-        layer_artist = self.viewer.layers[0].layer_artist
-        layer_artist.on_click(on_click)
+        map_layer = self.viewer.layers[0].map_layer
+        map_layer.on_click(on_click)
         #for layer in self.viewer.layers: #Perhaps we do not want to do this for every layer, but only the top one? 
         #That could become confusing in the case where we have multiple non-overlapping layers...
         #    print(f"Adding on_click to {layer}")
@@ -145,8 +145,8 @@ class PointSelect(IpyLeafletSelectionTool):
         #    layer_artist.on_click(on_click)
 
     def deactivate(self):
-        layer_artist = self.viewer.layers[0].layer_artist
-        layer_artist._click_callbacks = CallbackDispatcher() #This removes all on_click callbacks, but seems to work
+        map_layer = self.viewer.layers[0].map_layer
+        map_layer._click_callbacks = CallbackDispatcher() #This removes all on_click callbacks, but seems to work
         self.list_of_region_ids = [] #We need to trigger this when we switch modes too (to do a new region)
         #print(f"List of Region IDs: {list(set(self.list_of_region_ids))}") #For some reason this adds all regions twice
 
@@ -170,23 +170,21 @@ class RectangleSelect(IpyLeafletSelectionTool):
 
     def activate(self):
         """
-        This gets the information we want, but we need to disable dragging and we need to 
-        draw a rectangle on the map. The DrawControl stuff in ipyleaflet does all this
-        
+        self.viewer.mapfigure.dragging = False 
+        This SHOULD work, but it does not
+        https://github.com/jupyter-widgets/ipyleaflet/issues/711#issuecomment-704311279
+        Until then, we have to hold down SHIFT
         """
-        #self.viewer.mapfigure.dragging = False #This SHOULD work, but it does not
-        #https://github.com/jupyter-widgets/ipyleaflet/issues/711#issuecomment-704311279
-        #Until then, we have to hold down SHIFT
         def map_interaction(**kwargs):
             #print(kwargs)
             if kwargs['type'] == 'mousedown':
-                print(f'mousedown {kwargs["coordinates"]}')
+                #print(f'mousedown {kwargs["coordinates"]}')
                 self.start_coords = kwargs['coordinates']
                 self.rect = Rectangle(bounds=(self.start_coords, kwargs['coordinates']),
                                         weight=1, fill_opacity=0, dash_array= '5, 5', color='gray')
-                self.viewer.mapfigure.add_layer(self.rect)
+                self.viewer.map.add_layer(self.rect)
             elif kwargs['type'] == 'mouseup' and self.start_coords:
-                print(f'mouseup {kwargs["coordinates"]}')
+                #print(f'mouseup {kwargs["coordinates"]}')
                 self.end_coords = kwargs['coordinates']
                 
                 xmin = self.end_coords[1]
@@ -203,7 +201,7 @@ class RectangleSelect(IpyLeafletSelectionTool):
                 
                 self.start_coords = None
                 time.sleep(0.1)
-                self.viewer.mapfigure.remove_layer(self.rect)
+                self.viewer.map.remove_layer(self.rect)
             elif kwargs['type'] == 'mousemove' and self.start_coords:
                 new_rect = Rectangle(bounds=(self.start_coords, kwargs['coordinates']),
                                         weight=1, fill_opacity=0.1, dash_array= '5, 5', color='gray', fill_color='gray')
@@ -228,13 +226,13 @@ class RectangleSelect(IpyLeafletSelectionTool):
                 #It is possible that 
                 #self.viewer.apply_subset_state(subset_state, override_mode=None) 
                 
-                self.viewer.mapfigure.substitute_layer(self.rect,new_rect) 
+                self.viewer.map.substitute_layer(self.rect,new_rect) 
                 self.rect = new_rect
             #print(kwargs)
-        self.viewer.mapfigure.on_interaction(map_interaction)
+        self.viewer.map.on_interaction(map_interaction)
 
     def deactivate(self):
-        self.viewer.mapfigure._interaction_callbacks = CallbackDispatcher()
+        self.viewer.map._interaction_callbacks = CallbackDispatcher()
         #self.viewer.mapfigure.dragging = True
         
         
