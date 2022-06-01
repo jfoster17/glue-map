@@ -114,9 +114,13 @@ class MapPointsLayerArtist(LayerArtist):
         
         if force or 'display_mode' in changed:
             if self.state.display_mode == 'Individual Points':
-                self.map_layer = LayerGroup(layers = self._markers)
+                self.map.remove_layer(self.map_layer)
+                self.map_layer = LayerGroup(layers=self._markers)
+                self.map.add_layer(self.map_layer)
             else:
+                self.map.remove_layer(self.map_layer)
                 self.map_layer = Heatmap(locations=self._coords)
+                self.map.add_layer(self.map_layer)
 
         
         if self.visible is False:
@@ -148,19 +152,43 @@ class MapPointsLayerArtist(LayerArtist):
             self._coords = locs
             if self.state.display_mode == 'Individual Points':
                 for lat,lon in self._coords:
-                    self._markers.append(CircleMarker(location=(lat, lon)))
+                    self._markers.append(CircleMarker(location=(lat, lon), stroke=False, fill_color=color2hex(self.state.color), fill_opacity = self.state.alpha)) #Might want to make this an option. This is not quite right, we should store the current colors in a state var? Otherwise, we do not get the colormap value back when toggling display_mode...
                 self.map_layer.layers = self._markers # layers is the attribute here
             else:
                 self.map_layer.locations = self._coords
 
-        if force or 'color' in changed:
-            try:
-                self.map.remove_layer(self.map_layer)
-                color = color2hex(self.state.color)
-                self.map_layer.gradient = {0:color, 1:color} 
-                self.map.add_layer(self.map_layer)
-            except ipyleaflet.LayerException:
-                pass
+        if force or any(x in changed for x in ['color','color_mode','cmap_att','display_mode','cmap_vmin','cmap_vmax','cmap']):
+            print("Updating color")
+            if self.state.display_mode == 'Individual Points':
+                if self.state.color_mode == 'Linear' and self.state.cmap_att is not None:
+                    try:
+                        color_values = self.layer[self.state.cmap_att]
+                    except IncompatibleAttribute:
+                        self.disable_invalid_attributes(self.state.cmap_att)
+                        return
+                    print("Calculating colors...")
+
+                    if 'cmap_vmin' not in changed and 'cmap_att' in changed:
+                        self.state.cmap_vmin = min(color_values)
+                    if 'cmap_vmax' not in changed and 'cmap_att' in changed:
+                        self.state.cmap_vmax = max(color_values)
+                    diff = self.state.cmap_vmax-self.state.cmap_vmin or 1 #to avoid div by zero
+                    normalized_vals = (color_values-self.state.cmap_vmin)/diff
+                    for marker,val in zip(self._markers,normalized_vals):
+                        marker.fill_color = color2hex(self.state.cmap(val))
+                else:
+                    for marker in self._markers:
+                        marker.fill_color = color2hex(self.state.color)
+
+
+            else:
+                try:
+                    self.map.remove_layer(self.map_layer)
+                    color = color2hex(self.state.color)
+                    self.map_layer.gradient = {0:color, 1:color} 
+                    self.map.add_layer(self.map_layer)
+                except ipyleaflet.LayerException:
+                    pass
         
         if force or any(x in changed for x in ['size','size_mode','size_scaling','size_att','display_mode','size_vmin','size_vmax']):
             print("Updating size")
@@ -332,8 +360,10 @@ class MapRegionLayerArtist(LayerArtist):
                 except IncompatibleAttribute:
                     self.disable_invalid_attributes(self.state.cmap_att)
                     return
-                self.state.cmap_vmin = min(cmap_values) # Actually we only want to update this if we swap cmap_att, otherwise allow vmin and vmax to change
-                self.state.cmap_vmax = max(cmap_values)
+                if 'cmap_vmin' not in changed and 'cmap_att' in changed:
+                    self.state.cmap_vmin = min(cmap_values) # Actually we only want to update this if we swap cmap_att, otherwise allow vmin and vmax to change
+                if 'cmap_vmax' not in changed and 'cmap_att' in changed:
+                    self.state.cmap_vmax = max(cmap_values)
                 diff = self.state.cmap_vmax-self.state.cmap_vmin
                 normalized_vals = (cmap_values-self.state.cmap_vmin)/diff
                 mapping = dict(zip([str(x) for x in self.layer['Pixel Axis 0 [x]']], normalized_vals)) 
