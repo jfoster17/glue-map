@@ -16,7 +16,7 @@ from .state import MapRegionLayerState, MapPointsLayerState
 from ..data import GeoRegionData, GeoPandasTranslator
 
 import ipyleaflet
-from ipyleaflet.leaflet import LayerException, LayersControl, CircleMarker, Heatmap, GeoJSON
+from ipyleaflet.leaflet import LayerException, LayersControl, CircleMarker, Heatmap, GeoJSON, LayerGroup
 from branca.colormap import linear
 
 from glue.utils import defer_draw, color2hex
@@ -58,7 +58,12 @@ class MapPointsLayerArtist(LayerArtist):
         self.visible = self.state.visible
         
         self._coords = []
-        self.map_layer = Heatmap(locations=self._coords)
+        self._markers = [] #These are the layers/markers to be plotted in Individual Points mode
+        if self.state.display_mode == 'Individual Points':
+            self.map_layer = LayerGroup(layers = self._markers)
+        else: # Heatmap is the default
+            self.map_layer = Heatmap(locations=self._coords)
+
         self.map.add_layer(self.map_layer)
         
         self.state.add_global_callback(self._update_presentation)
@@ -107,6 +112,13 @@ class MapPointsLayerArtist(LayerArtist):
         
         #logger.debug("updating Map for points in %s" % self.layer.label)
         
+        if force or 'display_mode' in changed:
+            if self.state.display_mode == 'Individual Points':
+                self.map_layer = LayerGroup(layers = self._markers)
+            else:
+                self.map_layer = Heatmap(locations=self._coords)
+
+        
         if self.visible is False:
             self.clear()
         else:
@@ -115,7 +127,7 @@ class MapPointsLayerArtist(LayerArtist):
             except ipyleaflet.LayerException:
                 pass
 
-        if force or any(x in changed for x in ['lon_att','lat_att']):
+        if force or any(x in changed for x in ['lon_att','lat_att','display_mode']):
             #print("Inside lat/lon if statement")
             try:
                 lon = self.layer[self._viewer_state.lon_att]
@@ -134,7 +146,12 @@ class MapPointsLayerArtist(LayerArtist):
                 
             locs = list(zip(lat,lon))
             self._coords = locs
-            self.map_layer.locations = self._coords
+            if self.state.display_mode == 'Individual Points':
+                for lat,lon in self._coords:
+                    self._markers.append(CircleMarker(location=(lat, lon)))
+                self.map_layer.layers = self._markers # layers is the attribute here
+            else:
+                self.map_layer.locations = self._coords
 
         if force or 'color' in changed:
             try:
@@ -144,15 +161,41 @@ class MapPointsLayerArtist(LayerArtist):
                 self.map.add_layer(self.map_layer)
             except ipyleaflet.LayerException:
                 pass
+        
+        if force or any(x in changed for x in ['size','size_mode','size_scaling','size_att','display_mode','size_vmin','size_vmax']):
+            print("Updating size")
+            if self.state.size_mode == 'Linear' and self.state.size_att is not None:
+                print("Linear mode is active")
+                try:
+                    size_values = self.layer[self.state.size_att]
+                except IncompatibleAttribute:
+                    self.disable_invalid_attributes(self.state.size_att)
+                    return
+                    
+                if self.state.display_mode == 'Individual Points':
+                    print("Calculating sizes")
+                    if 'size_vmin' not in changed and 'size_att' in changed:
+                        self.state.size_vmin = min(size_values) # Actually we only want to update this if we swap size_att
+                    if 'size_vmax' not in changed and 'size_att' in changed:
+                        self.state.size_vmax = max(size_values)
+                    diff = self.state.size_vmax-self.state.size_vmin
+                    normalized_vals = (size_values-self.state.size_vmin)/diff
+                    #print(f'{self._markers=}')
+                    #self.map.remove_layer(self.map_layer)
+                    for marker,val in zip(self._markers,normalized_vals):
+                        marker.radius = int((val + 1)*self.state.size_scaling*5) # So we always show the points
+                        #print(int(val)+1)
+                #self.map.add_layer(self.map_layer)
                 
-        if force or 'size' in changed or 'size_scaling' in changed:
-            try:
-                self.map.remove_layer(self.map_layer)
-                self.map_layer.radius = self.state.size * self.state.size_scaling
-                self.map_layer.blur = self.map_layer.radius/10
-                self.map.add_layer(self.map_layer)
-            except ipyleaflet.LayerException:
-                pass
+            else:
+                size_values = None
+                try:
+                    self.map.remove_layer(self.map_layer)
+                    self.map_layer.radius = self.state.size * self.state.size_scaling
+                    self.map_layer.blur = self.map_layer.radius/10
+                    self.map.add_layer(self.map_layer)
+                except ipyleaflet.LayerException:
+                    pass
                 
         if force or 'alpha' in changed:
             try:
@@ -295,20 +338,10 @@ class MapRegionLayerArtist(LayerArtist):
                 normalized_vals = (cmap_values-self.state.cmap_vmin)/diff
                 mapping = dict(zip([str(x) for x in self.layer['Pixel Axis 0 [x]']], normalized_vals)) 
             
-                import random 
-                
-                def random_color(feature):
-                    return {
-                        'color': 'black',
-                        'fillColor': random.choice([(1,0,0,1), (0,1,0,1), (0,0,1,1)]),
-                    }
-                
-            
                 def feature_color(feature):
                     feature_name = feature["id"]
                     return {'fillColor': color2hex(self.state.cmap(mapping[feature_name]))}
                 
-                #print(f"{mapping=}")
                 old_style = self.map_layer.style
                 if 'color' in old_style:
                     del old_style['color']

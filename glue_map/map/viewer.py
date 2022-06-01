@@ -59,6 +59,12 @@ class PointsLayerStateWidget(VBox):
         self.color_widgets = Color(state=self.state)
         self.size_widgets = Size(state=self.state)
     
+        self.color_widgets.layout.width = '300px'
+        self.size_widgets.layout.width = '300px'
+        self.size_widgets.widget_size_vmax.layout.width = '250px'
+        self.size_widgets.widget_size_vmin.layout.width = '250px'
+        self.size_widgets.widget_size_vmax.description = 'size max'
+        
         #self.simple_color_widgets = SimpleColor(state=self.state)
         self.simple_size_widgets = SimpleSize(state=self.state)
     

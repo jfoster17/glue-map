@@ -136,8 +136,8 @@ class PointSelect(IpyLeafletSelectionTool):
         #Get current? layer geo_json object
         #print(self.viewer.layers[0])
         #layer_artist._click_callbacks = CallbackDispatcher() 
-        layer_artist = self.viewer.layers[0].layer_artist
-        layer_artist.on_click(on_click)
+        map_layer = self.viewer.layers[0].map_layer
+        map_layer.on_click(on_click)
         #for layer in self.viewer.layers: #Perhaps we do not want to do this for every layer, but only the top one? 
         #That could become confusing in the case where we have multiple non-overlapping layers...
         #    print(f"Adding on_click to {layer}")
@@ -145,8 +145,8 @@ class PointSelect(IpyLeafletSelectionTool):
         #    layer_artist.on_click(on_click)
 
     def deactivate(self):
-        layer_artist = self.viewer.layers[0].layer_artist
-        layer_artist._click_callbacks = CallbackDispatcher() #This removes all on_click callbacks, but seems to work
+        map_layer = self.viewer.layers[0].map_layer
+        map_layer._click_callbacks = CallbackDispatcher() #This removes all on_click callbacks, but seems to work
         self.list_of_region_ids = [] #We need to trigger this when we switch modes too (to do a new region)
         #print(f"List of Region IDs: {list(set(self.list_of_region_ids))}") #For some reason this adds all regions twice
 
