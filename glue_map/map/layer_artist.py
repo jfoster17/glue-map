@@ -87,6 +87,12 @@ class MapPointsLayerArtist(LayerArtist):
         pass
     
     def update(self):
+        # This gets called when subsets are added/updated...
+        # which is mostly fine, but 
+        # a) leaving a tool active means that update gets called
+        # b) we don't really save all the state of things in the layer_artist/state which we need to do if we are going to preserve changes
+        print("calling update...")
+        
         self._update_presentation(force=True)
 
     def _update_presentation(self, force=False, **kwargs):
@@ -112,14 +118,15 @@ class MapPointsLayerArtist(LayerArtist):
         
         #logger.debug("updating Map for points in %s" % self.layer.label)
         
-        if force or 'display_mode' in changed:
+        if 'display_mode' in changed:
+            print("Updating display_mode")
             if self.state.display_mode == 'Individual Points':
                 self.map.remove_layer(self.map_layer)
-                self.map_layer = LayerGroup(layers=self._markers)
+                self.map_layer = LayerGroup(layers=self._markers) 
                 self.map.add_layer(self.map_layer)
             else:
                 self.map.remove_layer(self.map_layer)
-                self.map_layer = Heatmap(locations=self._coords)
+                self.map_layer = Heatmap(locations=self._coords) #This is not quite right because we don't have state objects that describe all these other things that go into a Heatmap
                 self.map.add_layer(self.map_layer)
 
         
@@ -132,13 +139,13 @@ class MapPointsLayerArtist(LayerArtist):
                 pass
 
         if force or any(x in changed for x in ['lon_att','lat_att','display_mode']):
-            #print("Inside lat/lon if statement")
+            print("Inside lat/lon if statement")
             try:
                 lon = self.layer[self._viewer_state.lon_att]
             except IncompatibleAttribute:
                 self.disable_invalid_attributes(self._viewer_state.lon_att)
                 return
-            
+            print("Found a good lon")
             try:
                 lat = self.layer[self._viewer_state.lat_att]
             except IncompatibleAttribute:
@@ -226,12 +233,16 @@ class MapPointsLayerArtist(LayerArtist):
                     pass
                 
         if force or 'alpha' in changed:
-            try:
-                self.map.remove_layer(self.map_layer)
-                self.map_layer.min_opacity = self.state.alpha #This is not quite right, but close enough
-                self.map.add_layer(self.map_layer)
-            except ipyleaflet.LayerException:
-                pass
+            if self.state.display_mode == 'Individual Points':
+                for marker in self._markers:
+                    marker.fill_opacity = self.state.alpha
+            else:
+                try:
+                    self.map.remove_layer(self.map_layer)
+                    self.map_layer.min_opacity = self.state.alpha #This is not quite right, but close enough
+                    self.map.add_layer(self.map_layer)
+                except ipyleaflet.LayerException:
+                    pass
 
         self.enable()
 
