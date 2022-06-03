@@ -91,7 +91,7 @@ class MapPointsLayerArtist(LayerArtist):
         # which is mostly fine, but 
         # a) leaving a tool active means that update gets called
         # b) we don't really save all the state of things in the layer_artist/state which we need to do if we are going to preserve changes
-        print("calling update...")
+        #print("calling update...")
         
         self._update_presentation(force=True)
 
@@ -119,7 +119,7 @@ class MapPointsLayerArtist(LayerArtist):
         #logger.debug("updating Map for points in %s" % self.layer.label)
         
         if 'display_mode' in changed:
-            print("Updating display_mode")
+            #print("Updating display_mode")
             if self.state.display_mode == 'Individual Points':
                 self.map.remove_layer(self.map_layer)
                 self.map_layer = LayerGroup(layers=self._markers) 
@@ -139,13 +139,13 @@ class MapPointsLayerArtist(LayerArtist):
                 pass
 
         if force or any(x in changed for x in ['lon_att','lat_att','display_mode']):
-            print("Inside lat/lon if statement")
+            #print("Inside lat/lon if statement")
             try:
                 lon = self.layer[self._viewer_state.lon_att]
             except IncompatibleAttribute:
                 self.disable_invalid_attributes(self._viewer_state.lon_att)
                 return
-            print("Found a good lon")
+            #print("Found a good lon")
             try:
                 lat = self.layer[self._viewer_state.lat_att]
             except IncompatibleAttribute:
@@ -165,7 +165,7 @@ class MapPointsLayerArtist(LayerArtist):
                 self.map_layer.locations = self._coords
 
         if force or any(x in changed for x in ['color','color_mode','cmap_att','display_mode','cmap_vmin','cmap_vmax','cmap']):
-            print("Updating color")
+            #print("Updating color")
             if self.state.display_mode == 'Individual Points':
                 if self.state.color_mode == 'Linear' and self.state.cmap_att is not None:
                     try:
@@ -173,7 +173,7 @@ class MapPointsLayerArtist(LayerArtist):
                     except IncompatibleAttribute:
                         self.disable_invalid_attributes(self.state.cmap_att)
                         return
-                    print("Calculating colors...")
+                    #print("Calculating colors...")
 
                     if 'cmap_vmin' not in changed and 'cmap_att' in changed:
                         self.state.cmap_vmin = min(color_values)
@@ -198,9 +198,9 @@ class MapPointsLayerArtist(LayerArtist):
                     pass
         
         if force or any(x in changed for x in ['size','size_mode','size_scaling','size_att','display_mode','size_vmin','size_vmax']):
-            print("Updating size")
+            #print("Updating size")
             if self.state.size_mode == 'Linear' and self.state.size_att is not None:
-                print("Linear mode is active")
+                #print("Linear mode is active")
                 try:
                     size_values = self.layer[self.state.size_att]
                 except IncompatibleAttribute:
