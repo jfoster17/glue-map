@@ -1,6 +1,6 @@
 import ipyleaflet
 
-from glue.logger import logger
+#from glue.logger import logger
 from glue.utils import color2hex
 
 from glue_jupyter.view import IPyWidgetView
@@ -18,6 +18,8 @@ from glue_jupyter.widgets import LinkedDropdown, Color, Size
 
 import ipywidgets
 from ipywidgets import HBox, Tab, VBox, FloatSlider, FloatText
+
+
 
 __all__ = ['IPyLeafletMapViewer']
 
@@ -131,7 +133,7 @@ class IPyLeafletMapViewer(IPyWidgetView):
     tools = ['ipyleaflet:pointselect','ipyleaflet:rectangleselect']
 
     def __init__(self, session, state=None):
-        logger.debug("Creating a new Viewer...")
+        #logger.debug("Creating a new Viewer...")
         super(IPyLeafletMapViewer, self).__init__(session, state=state)
 
         self._initialize_map()

@@ -20,7 +20,11 @@ from ipyleaflet.leaflet import LayerException, LayersControl, CircleMarker, Heat
 from branca.colormap import linear
 
 from glue.utils import defer_draw, color2hex
-from glue.logger import logger
+#from glue.logger import logger
+
+import logging
+my_logger = logging.getLogger("")
+my_logger.setLevel(logging.WARNING)
 
 __all__ = ['MapRegionLayerArtist', 'MapPointsLayerArtist']
 
@@ -67,9 +71,9 @@ class MapPointsLayerArtist(LayerArtist):
         self.map.add_layer(self.map_layer)
         
         self.state.add_global_callback(self._update_presentation)
-        self._viewer_state.add_global_callback(self._update_presentation)
+        #self._viewer_state.add_global_callback(self._update_presentation)
         
-        self._update_presentation(force=True)
+        #self._update_presentation(force=True)
     
     def clear(self):
         if self.map_layer is not None:
@@ -92,6 +96,12 @@ class MapPointsLayerArtist(LayerArtist):
         # a) leaving a tool active means that update gets called
         # b) we don't really save all the state of things in the layer_artist/state which we need to do if we are going to preserve changes
         #print("calling update...")
+        
+        if (self.map is None or self.state.layer is None or 
+             self._viewer_state.lat_att is None or
+             self._viewer_state.lon_att is None):
+             return
+            
         
         self._update_presentation(force=True)
 
@@ -116,7 +126,7 @@ class MapPointsLayerArtist(LayerArtist):
         if self._viewer_state.lon_att is None or self._viewer_state.lat_att is None:
             self.clear()
         
-        #logger.debug("updating Map for points in %s" % self.layer.label)
+        my_logger.debug(f"updating Map for points in {self.layer.label} with {force=}")
         
         if 'display_mode' in changed:
             #print("Updating display_mode")
@@ -269,6 +279,8 @@ class MapRegionLayerArtist(LayerArtist):
       }
 
     def __init__(self, viewer_state, map=None, layer_state=None, layer=None):
+        my_logger.warning(f"Calling _init_...")
+
         super(MapRegionLayerArtist, self).__init__(viewer_state,
                                                   layer_state=layer_state,
                                                   layer=layer)
@@ -287,12 +299,12 @@ class MapRegionLayerArtist(LayerArtist):
                             hover_style={'fillOpacity':self.state.alpha+0.2}
             
         )
-        self.map.add_layer(self.map_layer)
+        #self.map.add_layer(self.map_layer)
         
         self.state.add_global_callback(self._update_presentation)
-        self._viewer_state.add_global_callback(self._update_presentation)
+        #self._viewer_state.add_global_callback(self._update_presentation)
         
-        self._update_presentation(force=True)
+        #self._update_presentation(force=True)
     
     def clear(self):
         if self.map_layer is not None:
@@ -310,26 +322,32 @@ class MapRegionLayerArtist(LayerArtist):
         pass
     
     def update(self):
+        if (self.map is None or self.state.layer is None or 
+             self._viewer_state.lat_att is None or
+             self._viewer_state.lon_att is None):
+             return
+        my_logger.warning(f"*** MapRegionLayerArtist.update ***")
+
         self._update_presentation(force=True)
     
     def _update_presentation(self, force=False, **kwargs):
         """
         """
-        
-        #print(f"Updating layer_artist for points in {self.layer.label}")
+        my_logger.warning(f"*** MapRegionLayerArtist._update_presentation ***")
+
+        my_logger.warning(f"updating Map for regions in {self.layer.label} with {force=}")
     
         if self._removed:
             return
         
         changed = set() if force else self.pop_changed_properties()
-        #print(f"These variables have changed: {changed}")
-    
-        #print(f"{self.state.color=}")
+        my_logger.warning(f"These variables have changed: {changed}")
+        
+        if not changed and not force or len(changed) > 6: #For some reason the first time we change anything, everything get changed. This is a hack around it.
+            return # Bail quickly
         
         if self._viewer_state.lon_att is None or self._viewer_state.lat_att is None:
             self.clear()
-        
-        #logger.debug("updating Map for points in %s" % self.layer.label)
         
         if self.visible is False:
             self.clear()
@@ -359,12 +377,13 @@ class MapRegionLayerArtist(LayerArtist):
 
             if not len(lon):
                 return
-    
+            my_logger.warning(f"Updating map_layer.data with regions...")
+
             gdf = GeoPandasTranslator().to_object(self.layer)
             self._regions = json.loads(gdf.to_json())
             self.map_layer.data = self._regions
     
-        if force or any(x in changed for x in ['cmap_att','color_mode','cmap','cmap_vmin','cmap_vmax']):
+        if force or any(x in changed for x in ['cmap_att','color_mode','cmap','cmap_vmin','cmap_vmax','color']):
             if self.state.color_mode == 'Linear' and self.state.cmap_att is not None and self.state.cmap is not None:
                 try:
                     cmap_values = self.layer[self.state.cmap_att]
@@ -383,21 +402,26 @@ class MapRegionLayerArtist(LayerArtist):
                     feature_name = feature["id"]
                     return {'fillColor': color2hex(self.state.cmap(mapping[feature_name]))}
                 
+                # This logic does not seem to work when we change the color first and then go back to linear?
                 old_style = self.map_layer.style
                 if 'color' in old_style:
                     del old_style['color']
                 if 'fillColor' in old_style:
                     del old_style['fillColor']
-            
+                
+                my_logger.warning(f"Setting color for Linear color...")
+
                 self.map_layer.style = old_style #We need to blank these https://github.com/jupyter-widgets/ipyleaflet/issues/675#issuecomment-710970550
                 self.map_layer.style_callback = feature_color
                 
-            elif self.state.color_mode == 'Fixed':
+            elif self.state.color_mode == 'Fixed' and self.state.color is not None:
+                my_logger.warning(f"Setting color for Fixed color...")
+
                 self.map_layer.style = {'color':self.state.color, 'fillColor':self.state.color}
             
-        if force or 'color' in changed:
-            if self.state.color is not None and self.state.color_mode == 'Fixed':
-                self.map_layer.style = {'color':self.state.color, 'fillColor':self.state.color}
+        #if force or 'color' in changed:
+        #    if self.state.color is not None and self.state.color_mode == 'Fixed':
+        #        self.map_layer.style = {'color':self.state.color, 'fillColor':self.state.color}
                 
         if force or 'alpha' in changed:
             if self.state.alpha is not None:
