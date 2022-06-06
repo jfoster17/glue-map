@@ -49,7 +49,8 @@ class MapViewerState(ViewerState):
     lat_att = SelectionCallbackProperty(default_index=0, docstring='The attribute to display as latitude')
     
     basemap = CallbackProperty(basemaps.Esri.WorldImagery)
-
+    map_layers = CallbackProperty()
+    
     def __init__(self, **kwargs):
 
         super(MapViewerState, self).__init__()
@@ -66,7 +67,6 @@ class MapViewerState(ViewerState):
                                                     world_coord=True, 
                                                     datetime=False, 
                                                     categorical=False)
-        
         
         self.add_callback('layers', self._on_layers_changed)
         self._on_layers_changed()

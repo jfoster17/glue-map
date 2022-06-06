@@ -343,7 +343,7 @@ class MapRegionLayerArtist(LayerArtist):
         changed = set() if force else self.pop_changed_properties()
         my_logger.warning(f"These variables have changed: {changed}")
         
-        if not changed and not force or len(changed) > 6: #For some reason the first time we change anything, everything get changed. This is a hack around it.
+        if not changed and not force: #or len(changed) > 6: #For some reason the first time we change anything, everything get changed. This is a hack around it.
             return # Bail quickly
         
         if self._viewer_state.lon_att is None or self._viewer_state.lat_att is None:

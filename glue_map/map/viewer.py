@@ -140,6 +140,7 @@ class IPyLeafletMapViewer(IPyWidgetView):
         
         link((self.state, 'zoom_level'), (self.map, 'zoom'), float_or_none)
         link((self.state, 'center'), (self.map, 'center'))
+        link((self.state, 'map_layers'), (self.map, 'layers')) # glue layers are self.layers. These are layers in the ipyleaflet widget
 
         self.state.add_global_callback(self._update_map)
         self._update_map(force=True)
@@ -147,6 +148,7 @@ class IPyLeafletMapViewer(IPyWidgetView):
         
     def _initialize_map(self):
         self.map = ipyleaflet.Map(basemap=self.state.basemap, prefer_canvas=True)
+        self.state.map_layers = self.map.layers # Need to set this initially
         
     def _update_map(self, force=False, **kwargs):
         if force or 'basemap' in kwargs:
