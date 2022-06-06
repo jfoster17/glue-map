@@ -78,11 +78,11 @@ class PointSelect(IpyLeafletSelectionTool):
         Currently the on_click function gets called twice on each
         actual click. I need to figure out the click model. 
         """
-        print("PointSelect activated...")
+        #print("PointSelect activated...")
         
         
         def on_click(event, feature, **kwargs):
-            print("On click called...")
+            #print("On click called...")
             self.list_of_region_ids = []
             #print(feature)
             feature_id = feature['id'] #This is the name of features in our geodata

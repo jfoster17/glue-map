@@ -20,7 +20,11 @@ from ipyleaflet.leaflet import LayerException, LayersControl, CircleMarker, Heat
 from branca.colormap import linear
 
 from glue.utils import defer_draw, color2hex
-from glue.logger import logger
+#from glue.logger import logger
+
+import logging
+my_logger = logging.getLogger("")
+my_logger.setLevel(logging.WARNING)
 
 __all__ = ['MapRegionLayerArtist', 'MapPointsLayerArtist']
 
@@ -67,9 +71,9 @@ class MapPointsLayerArtist(LayerArtist):
         self.map.add_layer(self.map_layer)
         
         self.state.add_global_callback(self._update_presentation)
-        self._viewer_state.add_global_callback(self._update_presentation)
+        #self._viewer_state.add_global_callback(self._update_presentation)
         
-        self._update_presentation(force=True)
+        #self._update_presentation(force=True)
     
     def clear(self):
         if self.map_layer is not None:
@@ -87,6 +91,18 @@ class MapPointsLayerArtist(LayerArtist):
         pass
     
     def update(self):
+        # This gets called when subsets are added/updated...
+        # which is mostly fine, but 
+        # a) leaving a tool active means that update gets called
+        # b) we don't really save all the state of things in the layer_artist/state which we need to do if we are going to preserve changes
+        #print("calling update...")
+        
+        if (self.map is None or self.state.layer is None or 
+             self._viewer_state.lat_att is None or
+             self._viewer_state.lon_att is None):
+             return
+            
+        
         self._update_presentation(force=True)
 
     def _update_presentation(self, force=False, **kwargs):
@@ -110,13 +126,18 @@ class MapPointsLayerArtist(LayerArtist):
         if self._viewer_state.lon_att is None or self._viewer_state.lat_att is None:
             self.clear()
         
-        #logger.debug("updating Map for points in %s" % self.layer.label)
+        my_logger.debug(f"updating Map for points in {self.layer.label} with {force=}")
         
-        if force or 'display_mode' in changed:
+        if 'display_mode' in changed:
+            #print("Updating display_mode")
             if self.state.display_mode == 'Individual Points':
-                self.map_layer = LayerGroup(layers = self._markers)
+                self.map.remove_layer(self.map_layer)
+                self.map_layer = LayerGroup(layers=self._markers) 
+                self.map.add_layer(self.map_layer)
             else:
-                self.map_layer = Heatmap(locations=self._coords)
+                self.map.remove_layer(self.map_layer)
+                self.map_layer = Heatmap(locations=self._coords) #This is not quite right because we don't have state objects that describe all these other things that go into a Heatmap
+                self.map.add_layer(self.map_layer)
 
         
         if self.visible is False:
@@ -134,7 +155,7 @@ class MapPointsLayerArtist(LayerArtist):
             except IncompatibleAttribute:
                 self.disable_invalid_attributes(self._viewer_state.lon_att)
                 return
-            
+            #print("Found a good lon")
             try:
                 lat = self.layer[self._viewer_state.lat_att]
             except IncompatibleAttribute:
@@ -148,24 +169,48 @@ class MapPointsLayerArtist(LayerArtist):
             self._coords = locs
             if self.state.display_mode == 'Individual Points':
                 for lat,lon in self._coords:
-                    self._markers.append(CircleMarker(location=(lat, lon)))
+                    self._markers.append(CircleMarker(location=(lat, lon), stroke=False, fill_color=color2hex(self.state.color), fill_opacity = self.state.alpha)) #Might want to make this an option. This is not quite right, we should store the current colors in a state var? Otherwise, we do not get the colormap value back when toggling display_mode...
                 self.map_layer.layers = self._markers # layers is the attribute here
             else:
                 self.map_layer.locations = self._coords
 
-        if force or 'color' in changed:
-            try:
-                self.map.remove_layer(self.map_layer)
-                color = color2hex(self.state.color)
-                self.map_layer.gradient = {0:color, 1:color} 
-                self.map.add_layer(self.map_layer)
-            except ipyleaflet.LayerException:
-                pass
+        if force or any(x in changed for x in ['color','color_mode','cmap_att','display_mode','cmap_vmin','cmap_vmax','cmap']):
+            #print("Updating color")
+            if self.state.display_mode == 'Individual Points':
+                if self.state.color_mode == 'Linear' and self.state.cmap_att is not None:
+                    try:
+                        color_values = self.layer[self.state.cmap_att]
+                    except IncompatibleAttribute:
+                        self.disable_invalid_attributes(self.state.cmap_att)
+                        return
+                    #print("Calculating colors...")
+
+                    if 'cmap_vmin' not in changed and 'cmap_att' in changed:
+                        self.state.cmap_vmin = min(color_values)
+                    if 'cmap_vmax' not in changed and 'cmap_att' in changed:
+                        self.state.cmap_vmax = max(color_values)
+                    diff = self.state.cmap_vmax-self.state.cmap_vmin or 1 #to avoid div by zero
+                    normalized_vals = (color_values-self.state.cmap_vmin)/diff
+                    for marker,val in zip(self._markers,normalized_vals):
+                        marker.fill_color = color2hex(self.state.cmap(val))
+                else:
+                    for marker in self._markers:
+                        marker.fill_color = color2hex(self.state.color)
+
+
+            else:
+                try:
+                    self.map.remove_layer(self.map_layer)
+                    color = color2hex(self.state.color)
+                    self.map_layer.gradient = {0:color, 1:color} 
+                    self.map.add_layer(self.map_layer)
+                except ipyleaflet.LayerException:
+                    pass
         
         if force or any(x in changed for x in ['size','size_mode','size_scaling','size_att','display_mode','size_vmin','size_vmax']):
-            print("Updating size")
+            #print("Updating size")
             if self.state.size_mode == 'Linear' and self.state.size_att is not None:
-                print("Linear mode is active")
+                #print("Linear mode is active")
                 try:
                     size_values = self.layer[self.state.size_att]
                 except IncompatibleAttribute:
@@ -198,12 +243,16 @@ class MapPointsLayerArtist(LayerArtist):
                     pass
                 
         if force or 'alpha' in changed:
-            try:
-                self.map.remove_layer(self.map_layer)
-                self.map_layer.min_opacity = self.state.alpha #This is not quite right, but close enough
-                self.map.add_layer(self.map_layer)
-            except ipyleaflet.LayerException:
-                pass
+            if self.state.display_mode == 'Individual Points':
+                for marker in self._markers:
+                    marker.fill_opacity = self.state.alpha
+            else:
+                try:
+                    self.map.remove_layer(self.map_layer)
+                    self.map_layer.min_opacity = self.state.alpha #This is not quite right, but close enough
+                    self.map.add_layer(self.map_layer)
+                except ipyleaflet.LayerException:
+                    pass
 
         self.enable()
 
@@ -230,6 +279,8 @@ class MapRegionLayerArtist(LayerArtist):
       }
 
     def __init__(self, viewer_state, map=None, layer_state=None, layer=None):
+        my_logger.warning(f"Calling _init_...")
+
         super(MapRegionLayerArtist, self).__init__(viewer_state,
                                                   layer_state=layer_state,
                                                   layer=layer)
@@ -248,12 +299,12 @@ class MapRegionLayerArtist(LayerArtist):
                             hover_style={'fillOpacity':self.state.alpha+0.2}
             
         )
-        self.map.add_layer(self.map_layer)
+        #self.map.add_layer(self.map_layer)
         
         self.state.add_global_callback(self._update_presentation)
-        self._viewer_state.add_global_callback(self._update_presentation)
+        #self._viewer_state.add_global_callback(self._update_presentation)
         
-        self._update_presentation(force=True)
+        #self._update_presentation(force=True)
     
     def clear(self):
         if self.map_layer is not None:
@@ -271,26 +322,32 @@ class MapRegionLayerArtist(LayerArtist):
         pass
     
     def update(self):
+        if (self.map is None or self.state.layer is None or 
+             self._viewer_state.lat_att is None or
+             self._viewer_state.lon_att is None):
+             return
+        my_logger.warning(f"*** MapRegionLayerArtist.update ***")
+
         self._update_presentation(force=True)
     
     def _update_presentation(self, force=False, **kwargs):
         """
         """
-        
-        #print(f"Updating layer_artist for points in {self.layer.label}")
+        my_logger.warning(f"*** MapRegionLayerArtist._update_presentation ***")
+
+        my_logger.warning(f"updating Map for regions in {self.layer.label} with {force=}")
     
         if self._removed:
             return
         
         changed = set() if force else self.pop_changed_properties()
-        #print(f"These variables have changed: {changed}")
-    
-        #print(f"{self.state.color=}")
+        my_logger.warning(f"These variables have changed: {changed}")
+        
+        if not changed and not force or len(changed) > 6: #For some reason the first time we change anything, everything get changed. This is a hack around it.
+            return # Bail quickly
         
         if self._viewer_state.lon_att is None or self._viewer_state.lat_att is None:
             self.clear()
-        
-        #logger.debug("updating Map for points in %s" % self.layer.label)
         
         if self.visible is False:
             self.clear()
@@ -320,20 +377,23 @@ class MapRegionLayerArtist(LayerArtist):
 
             if not len(lon):
                 return
-    
+            my_logger.warning(f"Updating map_layer.data with regions...")
+
             gdf = GeoPandasTranslator().to_object(self.layer)
             self._regions = json.loads(gdf.to_json())
             self.map_layer.data = self._regions
     
-        if force or any(x in changed for x in ['cmap_att','color_mode','cmap','cmap_vmin','cmap_vmax']):
+        if force or any(x in changed for x in ['cmap_att','color_mode','cmap','cmap_vmin','cmap_vmax','color']):
             if self.state.color_mode == 'Linear' and self.state.cmap_att is not None and self.state.cmap is not None:
                 try:
                     cmap_values = self.layer[self.state.cmap_att]
                 except IncompatibleAttribute:
                     self.disable_invalid_attributes(self.state.cmap_att)
                     return
-                self.state.cmap_vmin = min(cmap_values) # Actually we only want to update this if we swap cmap_att, otherwise allow vmin and vmax to change
-                self.state.cmap_vmax = max(cmap_values)
+                if 'cmap_vmin' not in changed and 'cmap_att' in changed:
+                    self.state.cmap_vmin = min(cmap_values) # Actually we only want to update this if we swap cmap_att, otherwise allow vmin and vmax to change
+                if 'cmap_vmax' not in changed and 'cmap_att' in changed:
+                    self.state.cmap_vmax = max(cmap_values)
                 diff = self.state.cmap_vmax-self.state.cmap_vmin
                 normalized_vals = (cmap_values-self.state.cmap_vmin)/diff
                 mapping = dict(zip([str(x) for x in self.layer['Pixel Axis 0 [x]']], normalized_vals)) 
@@ -342,21 +402,26 @@ class MapRegionLayerArtist(LayerArtist):
                     feature_name = feature["id"]
                     return {'fillColor': color2hex(self.state.cmap(mapping[feature_name]))}
                 
+                # This logic does not seem to work when we change the color first and then go back to linear?
                 old_style = self.map_layer.style
                 if 'color' in old_style:
                     del old_style['color']
                 if 'fillColor' in old_style:
                     del old_style['fillColor']
-            
+                
+                my_logger.warning(f"Setting color for Linear color...")
+
                 self.map_layer.style = old_style #We need to blank these https://github.com/jupyter-widgets/ipyleaflet/issues/675#issuecomment-710970550
                 self.map_layer.style_callback = feature_color
                 
-            elif self.state.color_mode == 'Fixed':
+            elif self.state.color_mode == 'Fixed' and self.state.color is not None:
+                my_logger.warning(f"Setting color for Fixed color...")
+
                 self.map_layer.style = {'color':self.state.color, 'fillColor':self.state.color}
             
-        if force or 'color' in changed:
-            if self.state.color is not None and self.state.color_mode == 'Fixed':
-                self.map_layer.style = {'color':self.state.color, 'fillColor':self.state.color}
+        #if force or 'color' in changed:
+        #    if self.state.color is not None and self.state.color_mode == 'Fixed':
+        #        self.map_layer.style = {'color':self.state.color, 'fillColor':self.state.color}
                 
         if force or 'alpha' in changed:
             if self.state.alpha is not None:
