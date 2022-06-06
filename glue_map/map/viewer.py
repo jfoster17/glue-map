@@ -19,6 +19,9 @@ from glue_jupyter.widgets import LinkedDropdown, Color, Size
 import ipywidgets
 from ipywidgets import HBox, Tab, VBox, FloatSlider, FloatText
 
+import logging
+my_logger = logging.getLogger("")
+my_logger.setLevel(logging.WARNING)
 
 
 __all__ = ['IPyLeafletMapViewer']
@@ -151,6 +154,8 @@ class IPyLeafletMapViewer(IPyWidgetView):
         self.state.map_layers = self.map.layers # Need to set this initially
         
     def _update_map(self, force=False, **kwargs):
+        my_logger.warning(f"Calling IPyLeafletMapViewer._update_map...")
+        #my_logger.warning(f"{kwargs=}")       
         if force or 'basemap' in kwargs:
             pass #Change basemap
     

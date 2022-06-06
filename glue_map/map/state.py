@@ -90,7 +90,7 @@ class MapRegionLayerState(LayerState):
     cmap_mode = color_mode
     
     cmap_limits_cache = CallbackProperty({})
-    
+
     name = "" #Name for display
 
     def __init__(self, layer=None, **kwargs):
