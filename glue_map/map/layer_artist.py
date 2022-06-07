@@ -253,14 +253,14 @@ class MapPointsLayerArtist(LayerArtist):
                     self.map.add_layer(self.map_layer)
                 except ipyleaflet.LayerException:
                     pass
-        #if 'zorder' in changed:
-        #    old_ipyleaflet_layers = self._viewer_state.map_layers #These are the ipyleaflet layers
-        #    old_glue_layers = self._viewer_state.layers #These are the glue layers
-        #    # We assume these are in the same order. This... might not be correct
-        #    
-        #    zorders = [glue_layer.zorder for glue_layer in old_glue_layers]
-        #    self._viewer_state.map_layers, self._viewer_state.layers = zip(*sorted(zip(old_ipyleaflet_layers, zorders)))
-        #    #self._viewer_state.map_layers = sorted(old_ipyleaflet_layers, key=lambda x: zorders[x[0]])
+                    
+        if 'zorder' in changed:
+            # We assume these are in the same order. This... might not always be correct?
+            old_ipyleaflet_layers = self._viewer_state.map_layers #These are the ipyleaflet layers
+            old_glue_layers = self._viewer_state.layers #These are the glue layers
+            zorders = [glue_layer.zorder for glue_layer in old_glue_layers]
+            zorders.insert(0,-1) # ipyleaflet Basemap is not a glue layer, but we always want it to be the bottom (zorder = -1)
+            self._viewer_state.map_layers = list(zip(*sorted(zip(zorders, old_ipyleaflet_layers))))[1]
 
         self.enable()
 
@@ -442,8 +442,6 @@ class MapRegionLayerArtist(LayerArtist):
             old_glue_layers = self._viewer_state.layers #These are the glue layers
             zorders = [glue_layer.zorder for glue_layer in old_glue_layers]
             zorders.insert(0,-1) # ipyleaflet Basemap is not a glue layer, but we always want it to be the bottom (zorder = -1)
-            
-
             self._viewer_state.map_layers = list(zip(*sorted(zip(zorders, old_ipyleaflet_layers))))[1]
 
         self.enable()

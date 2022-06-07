@@ -19,12 +19,18 @@ import glue_jupyter as gj
 
 
 DATA = os.path.join(os.path.dirname(__file__), 'data')
+DATA2 = os.path.join(os.path.dirname(__file__), '../../tests/data')
 
 @pytest.fixture
 def mapapp(mapdata):
     app = gj.jglue(mapdata=mapdata)
     return app
 
+@pytest.fixture
+def matowns():
+    matowns_gdf = geopandas.read_file(DATA+'/matowns.geojson')
+    matowns = GeoRegionData(matowns_gdf,'matowns')
+    return matowns
 
 @pytest.fixture
 def capitols():
@@ -57,6 +63,24 @@ def mapdata():
     mapdata = GeoRegionData(gdf,'states')
     return mapdata
 
+@pytest.fixture
+def flights():
+    flights = pd.read_csv(DATA2+'/airplane_flight_data_tiny.dat')
+    return flights
+
+@pytest.fixture
+def mapviewer_ma(mapapp, matowns, flights):
+    mapapp.add_data(matowns=matowns)
+    mapapp.add_data(flights=flights)
+    mapapp.add_link(flights, 'latitude', matowns, 'Geodetic latitude (Centroid)')
+    mapapp.add_link(flights, 'longitude', matowns, 'Geodetic longitude (Centroid)')
+    mapviewer_ma = mapapp.new_data_viewer('map',data=towndata)
+    _ = mapviewer_ma.add_data(flights)
+    return mapviewer_ma
+    
+
+def test_zorder(mapviewer_ma):
+    mapviewer.layers[1].zorder = 0
 
 def test_state_with_geopandas(mapapp, earthdata):
     mapapp.add_data(earthdata=earthdata)
