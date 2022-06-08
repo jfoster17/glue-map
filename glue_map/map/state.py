@@ -39,7 +39,9 @@ class MapViewerState(ViewerState):
         The attribute to display as latitude. For choropleth-type data this is a special coordinate component.
     lon_att : `~glue.core.component_id.ComponentID`
         The attribute to display as longitude. For choropleth-type data this is a special coordinate component.
-    
+    basemap : 
+        The basemap to use for the map. See https://github.com/jupyter-widgets/ipyleaflet/blob/master/examples/DropdownControl.ipynb
+        for an example of how we could make this dynamic.
     """
     
     center = CallbackProperty((40, -100),docstring='(Lon, Lat) at the center of the map')

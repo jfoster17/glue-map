@@ -129,7 +129,7 @@ class IPyLeafletMapViewer(IPyWidgetView):
     _state_cls = MapViewerState
     _options_cls = MapViewerStateWidget 
     _layer_style_widget_cls = {
-        MapRegionLayerArtist: RegionLayerStateWidget, # Do our own RegionLayerStateWidget
+        MapRegionLayerArtist: RegionLayerStateWidget,
         MapPointsLayerArtist: PointsLayerStateWidget,
     }
 
@@ -158,7 +158,7 @@ class IPyLeafletMapViewer(IPyWidgetView):
         #my_logger.warning(f"{kwargs=}")       
         if force or 'basemap' in kwargs:
             pass #Change basemap
-    
+
     def get_layer_artist(self, cls, layer=None, layer_state=None):
         """Need to add a reference to the ipyleaflet Map object"""
         return cls(self.map, self.state, layer=layer, layer_state=layer_state)
