@@ -23,8 +23,8 @@ from glue.utils import defer_draw, color2hex
 #from glue.logger import logger
 
 import logging
-my_logger = logging.getLogger("")
-my_logger.setLevel(logging.WARNING)
+#my_logger = logging.getLogger("")
+#my_logger.setLevel(logging.WARNING)
 
 __all__ = ['MapRegionLayerArtist', 'MapPointsLayerArtist']
 
@@ -126,7 +126,7 @@ class MapPointsLayerArtist(LayerArtist):
         if self._viewer_state.lon_att is None or self._viewer_state.lat_att is None:
             self.clear()
         
-        my_logger.debug(f"updating Map for points in {self.layer.label} with {force=}")
+        #my_logger.debug(f"updating Map for points in {self.layer.label} with {force=}")
         
         if 'display_mode' in changed:
             #print("Updating display_mode")
@@ -279,7 +279,7 @@ class MapRegionLayerArtist(LayerArtist):
       }
 
     def __init__(self, viewer_state, map=None, layer_state=None, layer=None):
-        my_logger.warning(f"Calling _init_...")
+        #my_logger.warning(f"Calling _init_...")
 
         super(MapRegionLayerArtist, self).__init__(viewer_state,
                                                   layer_state=layer_state,
@@ -326,22 +326,22 @@ class MapRegionLayerArtist(LayerArtist):
              self._viewer_state.lat_att is None or
              self._viewer_state.lon_att is None):
              return
-        my_logger.warning(f"*** MapRegionLayerArtist.update ***")
+        #my_logger.warning(f"*** MapRegionLayerArtist.update ***")
 
         self._update_presentation(force=True)
     
     def _update_presentation(self, force=False, **kwargs):
         """
         """
-        my_logger.warning(f"*** MapRegionLayerArtist._update_presentation ***")
+        #my_logger.warning(f"*** MapRegionLayerArtist._update_presentation ***")
 
-        my_logger.warning(f"updating Map for regions in {self.layer.label} with {force=}")
+        #my_logger.warning(f"updating Map for regions in {self.layer.label} with {force=}")
     
         if self._removed:
             return
         
         changed = set() if force else self.pop_changed_properties()
-        my_logger.warning(f"These variables have changed: {changed}")
+        #my_logger.warning(f"These variables have changed: {changed}")
         
         if not changed and not force or len(changed) > 6: #For some reason the first time we change anything, everything get changed. This is a hack around it.
             return # Bail quickly
@@ -377,7 +377,7 @@ class MapRegionLayerArtist(LayerArtist):
 
             if not len(lon):
                 return
-            my_logger.warning(f"Updating map_layer.data with regions...")
+            #my_logger.warning(f"Updating map_layer.data with regions...")
 
             gdf = GeoPandasTranslator().to_object(self.layer)
             self._regions = json.loads(gdf.to_json())
@@ -409,13 +409,13 @@ class MapRegionLayerArtist(LayerArtist):
                 if 'fillColor' in old_style:
                     del old_style['fillColor']
                 
-                my_logger.warning(f"Setting color for Linear color...")
+                #my_logger.warning(f"Setting color for Linear color...")
 
                 self.map_layer.style = old_style #We need to blank these https://github.com/jupyter-widgets/ipyleaflet/issues/675#issuecomment-710970550
                 self.map_layer.style_callback = feature_color
                 
             elif self.state.color_mode == 'Fixed' and self.state.color is not None:
-                my_logger.warning(f"Setting color for Fixed color...")
+                #my_logger.warning(f"Setting color for Fixed color...")
 
                 self.map_layer.style = {'color':self.state.color, 'fillColor':self.state.color}
             
