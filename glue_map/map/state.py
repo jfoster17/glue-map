@@ -23,8 +23,8 @@ from ..data import GeoRegionData
 
 
 import logging
-my_logger = logging.getLogger("")
-my_logger.setLevel(logging.WARNING)
+#my_logger = logging.getLogger("")
+#my_logger.setLevel(logging.WARNING)
 
 __all__ = ['MapViewerState', 'MapRegionLayerState', 'MapPointsLayerState']
 
@@ -105,7 +105,7 @@ class MapRegionLayerState(LayerState):
         
         self.cmap_att_helper = ComponentIDComboHelper(self, 'cmap_att',
                                                       numeric=True,
-                                                      categorical=False)
+                                                      categorical=True)
         
         self.cmap_lim_helper = StateAttributeLimitsHelper(self, attribute='cmap_att',
                                                           lower='cmap_vmin', upper='cmap_vmax',
@@ -123,11 +123,11 @@ class MapRegionLayerState(LayerState):
             self.name = f"{self.name} {(self.layer.data.label)}"
         
         self.update_from_dict(kwargs)
-        my_logger.warning(f"{self=}")
+        #my_logger.warning(f"{self=}")
 
         
     def _on_layer_change(self, layer=None):
-        my_logger.warning(f"Calling MapRegionLayerState._on_layer_change...")
+        #my_logger.warning(f"Calling MapRegionLayerState._on_layer_change...")
 
         with delay_callback(self, 'cmap_vmin', 'cmap_vmax'):
             if self.layer is None:
@@ -140,7 +140,7 @@ class MapRegionLayerState(LayerState):
         Not sure I understand all the logic here
         """
         super(MapRegionLayerState, self)._layer_changed()
-        my_logger.warning(f"Calling MapRegionLayerState._layer_changed...")
+        #my_logger.warning(f"Calling MapRegionLayerState._layer_changed...")
 
         if self._sync_color is not None:
             self._sync_color.stop_syncing()
