@@ -105,7 +105,7 @@ class MapRegionLayerState(LayerState):
         
         self.cmap_att_helper = ComponentIDComboHelper(self, 'cmap_att',
                                                       numeric=True,
-                                                      categorical=False)
+                                                      categorical=True)
         
         self.cmap_lim_helper = StateAttributeLimitsHelper(self, attribute='cmap_att',
                                                           lower='cmap_vmin', upper='cmap_vmax',

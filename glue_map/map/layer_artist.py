@@ -295,16 +295,14 @@ class MapRegionLayerArtist(LayerArtist):
         self.map_layer = GeoJSON(data = self._regions,
                             style={'fillColor': self.state.color,
                                    'fillOpacity':self.state.alpha,
+                                   'color':self.state.color,
+                                   'weight':0.5,
                                     },
                             hover_style={'fillOpacity':self.state.alpha+0.2}
             
         )
-        #self.map.add_layer(self.map_layer)
-        
         self.state.add_global_callback(self._update_presentation)
         #self._viewer_state.add_global_callback(self._update_presentation)
-        
-        #self._update_presentation(force=True)
     
     def clear(self):
         if self.map_layer is not None:
@@ -343,7 +341,7 @@ class MapRegionLayerArtist(LayerArtist):
         changed = set() if force else self.pop_changed_properties()
         #my_logger.warning(f"These variables have changed: {changed}")
         
-        if not changed and not force or len(changed) > 6: #For some reason the first time we change anything, everything get changed. This is a hack around it.
+        if not changed and not force: #or len(changed) > 6: #For some reason the first time we change anything, everything get changed. This is a hack around it.
             return # Bail quickly
         
         if self._viewer_state.lon_att is None or self._viewer_state.lat_att is None:
@@ -357,7 +355,6 @@ class MapRegionLayerArtist(LayerArtist):
             except ipyleaflet.LayerException:
                 pass
     
-        # Probably break out the color logic stuff into a separate statement
         if force or any(x in changed for x in ['lon_att','lat_att']):
             # We try to get lat and lon attributes because even though
             # we do not need them for display, we want to ensure
@@ -400,8 +397,9 @@ class MapRegionLayerArtist(LayerArtist):
             
                 def feature_color(feature):
                     feature_name = feature["id"]
-                    return {'fillColor': color2hex(self.state.cmap(mapping[feature_name]))}
-                
+                    region_color = color2hex(self.state.cmap(mapping[feature_name]))
+                    return {'fillColor': region_color, 'color': region_color}
+
                 # This logic does not seem to work when we change the color first and then go back to linear?
                 old_style = self.map_layer.style
                 if 'color' in old_style:
