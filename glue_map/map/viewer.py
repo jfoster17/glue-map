@@ -44,7 +44,6 @@ class SimpleSize(VBox):
                                                   value=self.state.size_scaling)
         link((self.state, 'size_scaling'), (self.widget_scaling, 'value'))
         
-        self.layout.width='300px' #Gets rid of scrollbars on my setup
         self.children = (self.widget_size, self.widget_scaling)
 
 
@@ -61,10 +60,6 @@ class PointsLayerStateWidget(VBox):
         self.color_widgets = Color(state=self.state)
         self.size_widgets = Size(state=self.state)
     
-        self.color_widgets.layout.width = '300px'
-        self.size_widgets.layout.width = '300px'
-        self.size_widgets.widget_size_vmax.layout.width = '250px'
-        self.size_widgets.widget_size_vmin.layout.width = '250px'
         self.size_widgets.widget_size_vmax.description = 'size max'
         
         #self.simple_color_widgets = SimpleColor(state=self.state)
@@ -92,7 +87,6 @@ class PointsLayerStateWidget(VBox):
         
         super().__init__([self.widget_display_mode, self.size_widgets, self.color_widgets, 
                           self.simple_size_widgets, self.widget_alpha])
-        self.layout.width='300px' #Gets rid of scrollbars on my setup
 
 
 class RegionLayerStateWidget(VBox):
@@ -104,7 +98,6 @@ class RegionLayerStateWidget(VBox):
         link((self.state, 'alpha'), (self.widget_alpha, 'value'))
         
         super().__init__([self.color_widgets, self.widget_alpha])
-        self.layout.width='300px' #Gets rid of scrollbars on my setup
 
 
 class IPyLeafletMapViewer(IPyWidgetView):
