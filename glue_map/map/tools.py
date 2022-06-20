@@ -6,10 +6,12 @@ from glue.core.subset import ElementSubsetState
 from glue.core.edit_subset_mode import AndMode
 
 from glue.core.roi import RectangularROI, RangeROI, CircularROI, EllipticalROI, PolygonalROI
-from glue.core.subset import RoiSubsetState, MultiOrState
+from glue.core.subset import RoiSubsetState, MultiOrState, OrState
 from glue.config import viewer_tool
 from glue.viewers.common.tool import Tool, CheckableTool
 from glue.core.exceptions import IncompatibleAttribute
+
+from .layer_artist import MapRegionLayerArtist
 
 import numpy as np
 
@@ -70,85 +72,64 @@ class PointSelect(IpyLeafletSelectionTool):
     def activate(self):
         """
         Capture point-select clicks. This is to select regions... 
-        
-        TODO:
-        Currently we have this operate only on the bottom layer
-        (bottom layer is easiest because subset layers get put on top)
-        
-        Currently the on_click function gets called twice on each
-        actual click. I need to figure out the click model. 
         """
-        #print("PointSelect activated...")
-        
+        print("PointSelect activated...")
         
         def on_click(event, feature, **kwargs):
-            #print("On click called...")
+            print("On click called...")
             self.list_of_region_ids = []
-            #print(feature)
+            #print(f'{feature=}')
             feature_id = feature['id'] #This is the name of features in our geodata
-            #print(feature_id)
+            print(feature_id)
             # List of region_ids should start with the current subset (how to get this?)
             active_subset = self.viewer.toolbar_active_subset.selected
             if active_subset:
                 print(f'activate_subset is: {active_subset}')
-                self.list_of_region_ids = list(self.viewer.session.data_collection.subset_groups[active_subset[0]].subsets[0].to_mask().nonzero()[0])
+                existing_subset_states = self.viewer.session.data_collection.subset_groups[active_subset[0]].subset_state
             else:
                 print("No active_subset")
-                print(f'active_subset is: {active_subset}')
+                existing_subset_states = None
             self.list_of_region_ids.append(int(feature_id))
             self.list_of_region_ids =  list(set(self.list_of_region_ids))
             print(f"List of region ids to draw... {self.list_of_region_ids}")
-            #import pdb; pdb.set_trace()
+            
             try:
-                #inds = [key for key, val in enumerate(self.viewer.state.layers_data[0]['ids']) if val in self.list_of_region_ids]
-                int_inds = [int(x) for x in self.list_of_region_ids]
-                # Assume we are trying to interact with the top layer
-                target_layer = self.viewer.layers[0].layer #This is just the bottom layer -- we need to think about how to get this properly
-                #print(target_layer)
-                # Get Geo geometries for these indices
-                try:
-                    region_geometries = target_layer.geometry[int_inds].explode(index_parts=False) #Expand multi-polygons to single polygons
-                except AttributeError: #If there is not a geometry column defined, then what do we do?
-                    pass
-                    
-                subset_states = []
-                for region in region_geometries:
-                    lons,lats = region.boundary.coords.xy
+                coord = feature['geometry']['coordinates']
+                new_subset_states = []
+                for region in coord: # I think this should loop through MultiPolygon types
+                    lons = []
+                    lats = []
+                    for k in region:
+                        lons.append(k[0])
+                        lats.append(k[1])
                     roi = PolygonalROI(vx=lons, vy =lats)
-                    subset_state = RoiSubsetState(xatt=target_layer._centroid_component_ids[1],
-                                                  yatt=target_layer._centroid_component_ids[0],
-                                                  roi=roi)
-                    subset_states.append(subset_state)
-                #union = region_geometries.unary_union
-                # Do a unary_union on these geometries
-                # Convert to a glue-like ROI (bounds?). Could be a performance limitation?
-                # subset_state = RoiSubsetState(xatt = centroid_lon, y_att=centroid_lat, roi=roi_from_above)
-                # We need to have centroid_lon and centroid_lat well defined...
-                final_subset_state = MultiOrState(subset_states)
+                    new_subset_state = RoiSubsetState(xatt=self.viewer.state.lon_att,
+                          yatt=self.viewer.state.lat_att,
+                          roi=roi)
+                    new_subset_states.append(new_subset_state)
+                if len(new_subset_states) == 1:
+                    final_subset_state = new_subset_states[0]
+                else:
+                    final_subset_state = MultiOrState(new_subset_states)
+
+                if existing_subset_states is not None:
+                    final_subset_state = OrState(existing_subset_states, final_subset_state)
+                else:
+                    pass
                 self.viewer.apply_subset_state(final_subset_state, override_mode=None) #What does override_mode do?
-                print(f"Indices applied... {int_inds}")
-                #print(final_subset_state)
-            except IncompatibleAttribute:
-                print("Got an IncompatibleAttribute")
-            #print(inds)
-            #print(subset_state.to_mask(self.viewer.state.layers_data[0]))
-            #print(feature['id'])
-        #Get current? layer geo_json object
-        #print(self.viewer.layers[0])
-        #layer_artist._click_callbacks = CallbackDispatcher() 
-        map_layer = self.viewer.layers[0].map_layer
-        map_layer.on_click(on_click)
-        #for layer in self.viewer.layers: #Perhaps we do not want to do this for every layer, but only the top one? 
-        #That could become confusing in the case where we have multiple non-overlapping layers...
-        #    print(f"Adding on_click to {layer}")
-        #    layer_artist = layer.layer_artist
-        #    layer_artist.on_click(on_click)
+
+            except OSError:
+                print("Feature has no geometry defined...")
+                pass
+
+        for map_layer in self.viewer.map.layers:
+            # Perhaps (perhaps not) make this limited to RegionLayerArtists?
+            map_layer.on_click(on_click)
 
     def deactivate(self):
-        map_layer = self.viewer.layers[0].map_layer
-        map_layer._click_callbacks = CallbackDispatcher() #This removes all on_click callbacks, but seems to work
-        self.list_of_region_ids = [] #We need to trigger this when we switch modes too (to do a new region)
-        #print(f"List of Region IDs: {list(set(self.list_of_region_ids))}") #For some reason this adds all regions twice
+        for map_layer in self.viewer.map.layers:
+            map_layer._click_callbacks = CallbackDispatcher() #This removes all on_click callbacks, but seems to work
+            self.list_of_region_ids = [] #We need to trigger this when we switch modes too (to do a new region)
 
     def close(self):
         pass
@@ -205,30 +186,9 @@ class RectangleSelect(IpyLeafletSelectionTool):
             elif kwargs['type'] == 'mousemove' and self.start_coords:
                 new_rect = Rectangle(bounds=(self.start_coords, kwargs['coordinates']),
                                         weight=1, fill_opacity=0.1, dash_array= '5, 5', color='gray', fill_color='gray')
-                # This is nice because it colors regions as we go, but it gets VERY slow with larger rectangles
-                # Need to heavily optimize or something.
-                
-                #self.end_coords = kwargs['coordinates']
-                #xmin = self.end_coords[1]
-                #xmax = self.start_coords[1]
-                #ymin = self.end_coords[0]
-                #ymax = self.start_coords[0]
-                #xmin, xmax = sorted((xmin, xmax))
-                #ymin, ymax = sorted((ymin, ymax))
-                
-                #roi = RectangularROI(xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax)
-                #subset_state = RoiSubsetState(xatt=self.viewer.state.lon_att,
-                #                              yatt=self.viewer.state.lat_att,
-                #                              roi=roi)
-                #This is slow IFF we cover a significant NUMBER of points
-                #Why? It is not the size of the region covered, and it does not seem to matter
-                #whether we have points or regions. 
-                #It is possible that 
-                #self.viewer.apply_subset_state(subset_state, override_mode=None) 
                 
                 self.viewer.map.substitute_layer(self.rect,new_rect) 
                 self.rect = new_rect
-            #print(kwargs)
         self.viewer.map.on_interaction(map_interaction)
 
     def deactivate(self):
