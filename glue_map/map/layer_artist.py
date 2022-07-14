@@ -296,7 +296,7 @@ class MapRegionLayerArtist(LayerArtist):
                             style={'fillColor': self.state.color,
                                    'fillOpacity':self.state.alpha,
                                    'color':self.state.color,
-                                   'weight':0.5,
+                                   'weight':0.1,
                                     },
                             hover_style={'fillOpacity':self.state.alpha+0.2}
             
