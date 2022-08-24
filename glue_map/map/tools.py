@@ -140,7 +140,7 @@ class RectangleSelect(IpyLeafletSelectionTool):
     icon = 'glue_square'
     tool_id = 'ipyleaflet:rectangleselect'
     action_text = 'Rectangular ROI'
-    tool_tip = 'Hold down SHIFT and drag to define a rectangular region of interest'
+    tool_tip = 'Drag to define a rectangular region of interest'
     status_tip = 'Define a rectangular region of interest'
     shortcut = 'D'
 
@@ -151,11 +151,8 @@ class RectangleSelect(IpyLeafletSelectionTool):
 
     def activate(self):
         """
-        self.viewer.mapfigure.dragging = False 
-        This SHOULD work, but it does not
-        https://github.com/jupyter-widgets/ipyleaflet/issues/711#issuecomment-704311279
-        Until then, we have to hold down SHIFT
         """
+        self.viewer.map.dragging = False
         def map_interaction(**kwargs):
             #print(kwargs)
             if kwargs['type'] == 'mousedown':
@@ -192,6 +189,7 @@ class RectangleSelect(IpyLeafletSelectionTool):
         self.viewer.map.on_interaction(map_interaction)
 
     def deactivate(self):
+        self.viewer.map.dragging = True
         self.viewer.map._interaction_callbacks = CallbackDispatcher()
         #self.viewer.mapfigure.dragging = True
         
