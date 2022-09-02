@@ -301,6 +301,8 @@ class MapRegionLayerArtist(LayerArtist):
                             hover_style={'fillOpacity':self.state.alpha+0.2}
             
         )
+        link((self.state, 'visible'), (self.map_layer, 'visible'))
+
         self.state.add_global_callback(self._update_presentation)
         #self._viewer_state.add_global_callback(self._update_presentation)
     
