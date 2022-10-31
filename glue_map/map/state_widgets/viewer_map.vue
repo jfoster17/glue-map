@@ -16,9 +16,13 @@
 </script>
 <style>
     .v-toolbar {
-    z-index: 500;
+    z-index: 500; <!-- ipyleaflet is z-index 400 and we need this on top -->
     }
     .v-navigation-drawer {
-    z-index: 9999 !important;
+    z-index: 99999 !important; <!-- Hack -->
     }
+    .v-menu {
+    z-index: 99999 !important; <!-- Hack -->
+    }
+
 </style>

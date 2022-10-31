@@ -14,3 +14,12 @@
     module.exports = {
     }
 </script>
+<style>
+    .v-navigation-drawer {
+    z-index: 99999 !important; <!-- Hack -->
+    }
+    .v-menu {
+    z-index: 99999 !important; <!-- Hack -->
+    }
+
+</style>
