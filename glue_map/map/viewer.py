@@ -174,6 +174,7 @@ class IPyLeafletMapViewer(IPyWidgetView):
         self.apply_subset_state(subset_state, override_mode=override_mode)
 
 
+
     @property
     def figure_widget(self):
         return self.map

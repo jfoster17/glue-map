@@ -102,7 +102,10 @@ class MapPointsLayerArtist(LayerArtist):
              self._viewer_state.lon_att is None):
              return
             
-        
+        self._markers = []
+        if self.map_layer.layers is not None:
+            self.map_layer.layers = self._markers
+
         self._update_presentation(force=True)
 
     def _update_presentation(self, force=False, **kwargs):
@@ -113,7 +116,7 @@ class MapPointsLayerArtist(LayerArtist):
             
         """
         
-        #print(f"Updating layer_artist for points in {self.layer.label}")
+        #print(f"Updating layer_artist for points in {self.layer.label} with {force=}")
 
         if self._removed:
             return
