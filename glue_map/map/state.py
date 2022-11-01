@@ -48,7 +48,7 @@ class MapViewerState(ViewerState):
     lon_att = SelectionCallbackProperty(default_index=1, docstring='The attribute to display as longitude')
     lat_att = SelectionCallbackProperty(default_index=0, docstring='The attribute to display as latitude')
     
-    basemap = CallbackProperty(basemaps.Esri.WorldImagery)
+    basemap = CallbackProperty(basemaps.Esri.WorldTopoMap)  # Nice and plain: basemaps.CartoDB.Positron
 
     def __init__(self, **kwargs):
 
@@ -115,7 +115,7 @@ class MapRegionLayerState(LayerState):
         if layer is not None:
             self._on_layer_change()
         
-        self.cmap = colormaps.members[0][1]
+        self.cmap = colormaps.members[1][1]
         
         MapRegionLayerState.color_mode.set_choices(self,['Fixed', 'Linear'])
         
@@ -225,9 +225,9 @@ class MapPointsLayerState(LayerState):
         if layer is not None:
             self._on_layer_change()
 
-        self.cmap = colormaps.members[0][1]
+        self.cmap = colormaps.members[1][1]
 
-        MapPointsLayerState.display_mode.set_choices(self,['Heatmap', 'Individual Points'])
+        MapPointsLayerState.display_mode.set_choices(self,['Individual Points', 'Heatmap'])
         MapPointsLayerState.color_mode.set_choices(self,['Fixed', 'Linear'])
         MapPointsLayerState.size_mode.set_choices(self,['Fixed', 'Linear'])
 

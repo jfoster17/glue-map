@@ -60,7 +60,7 @@ class GeoRegionData(Data):
             
             if isinstance(data, geopandas.GeoDataFrame):
                 self.geometry = data.geometry    
-                for name,values in data.iteritems():
+                for name,values in data.items():
                     if name != data.geometry.name: #Is this safe?
                         self.add_component(values, label=name)
                     else:

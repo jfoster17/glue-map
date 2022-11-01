@@ -131,9 +131,12 @@ class MapPointsLayerArtist(LayerArtist):
         if 'display_mode' in changed:
             #print("Updating display_mode")
             if self.state.display_mode == 'Individual Points':
-                self.map.remove_layer(self.map_layer)
-                self.map_layer = LayerGroup(layers=self._markers) 
-                self.map.add_layer(self.map_layer)
+                try:
+                    self.map.remove_layer(self.map_layer)
+                    self.map_layer = LayerGroup(layers=self._markers) 
+                    self.map.add_layer(self.map_layer)
+                except ipyleaflet.LayerException:
+                    pass
             else:
                 self.map.remove_layer(self.map_layer)
                 self.map_layer = Heatmap(locations=self._coords) #This is not quite right because we don't have state objects that describe all these other things that go into a Heatmap
@@ -234,13 +237,17 @@ class MapPointsLayerArtist(LayerArtist):
                 
             else:
                 size_values = None
-                try:
-                    self.map.remove_layer(self.map_layer)
-                    self.map_layer.radius = self.state.size * self.state.size_scaling
-                    self.map_layer.blur = self.map_layer.radius/10
-                    self.map.add_layer(self.map_layer)
-                except ipyleaflet.LayerException:
-                    pass
+                if self.state.display_mode == 'Individual Points':
+                    for marker in self._markers:
+                        marker.radius = self.state.size * self.state.size_scaling
+                else: 
+                    try:
+                        self.map.remove_layer(self.map_layer)
+                        self.map_layer.radius = self.state.size * self.state.size_scaling
+                        self.map_layer.blur = self.map_layer.radius/10
+                        self.map.add_layer(self.map_layer)
+                    except ipyleaflet.LayerException:
+                        pass
                 
         if force or 'alpha' in changed:
             if self.state.display_mode == 'Individual Points':
