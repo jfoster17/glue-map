@@ -6,6 +6,7 @@ from glue.utils import color2hex
 from glue_jupyter.view import IPyWidgetView
 from glue_jupyter.link import link, dlink
 from glue_jupyter.utils import float_or_none
+from glue.core.subset import roi_to_subset_state
 
 
 from .state import MapViewerState
@@ -161,7 +162,18 @@ class IPyLeafletMapViewer(IPyWidgetView):
     def get_subset_layer_artist(self, layer=None, layer_state=None):
         return self.get_data_layer_artist(layer=layer, layer_state=layer_state)
     
-    
+    def apply_roi(self, roi, override_mode=None):
+        self.redraw()
+
+        if len(self.layers) == 0:
+            return
+        
+        subset_state = roi_to_subset_state(roi, 
+                                            x_att=self.state.lon_att,
+                                            y_att=self.state.lat_att,)
+        self.apply_subset_state(subset_state, override_mode=override_mode)
+
+
     @property
     def figure_widget(self):
         return self.map

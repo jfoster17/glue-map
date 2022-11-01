@@ -171,6 +171,10 @@ class MapPointsLayerArtist(LayerArtist):
             locs = list(zip(lat,lon))
             self._coords = locs
             if self.state.display_mode == 'Individual Points':
+                try:
+                    self._markers = []
+                except:
+                    pass
                 for lat,lon in self._coords:
                     self._markers.append(CircleMarker(location=(lat, lon), stroke=False, fill_color=color2hex(self.state.color), fill_opacity = self.state.alpha)) #Might want to make this an option. This is not quite right, we should store the current colors in a state var? Otherwise, we do not get the colormap value back when toggling display_mode...
                 self.map_layer.layers = self._markers # layers is the attribute here

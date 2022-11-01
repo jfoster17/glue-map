@@ -172,10 +172,7 @@ class RectangleSelect(IpyLeafletSelectionTool):
                 xmin, xmax = sorted((xmin, xmax))
                 ymin, ymax = sorted((ymin, ymax))
                 roi = RectangularROI(xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax)
-                subset_state = RoiSubsetState(xatt=self.viewer.state.lon_att,
-                                              yatt=self.viewer.state.lat_att,
-                                              roi=roi)
-                self.viewer.apply_subset_state(subset_state, override_mode=None)
+                self.viewer.apply_roi(roi)
                 
                 self.start_coords = None
                 time.sleep(0.1)
