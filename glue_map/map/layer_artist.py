@@ -297,15 +297,17 @@ class MapRegionLayerArtist(LayerArtist):
         self.map = map
         self.zorder = self.state.zorder
         self.visible = self.state.visible
+        self.border_weight = 0.5 # This could be user-adjustable
         
         self._regions = self._fake_geo_json
         self.map_layer = GeoJSON(data = self._regions,
                             style={'fillColor': self.state.color,
                                    'fillOpacity':self.state.alpha,
+                                   'opacity':self.state.alpha,
                                    'color':self.state.color,
-                                   'weight':0.1,
+                                   'weight':self.border_weight,
                                     },
-                            hover_style={'fillOpacity':self.state.alpha+0.2}
+                            hover_style={'fillOpacity':self.state.alpha+0.2, 'opacity':self.state.alpha+0.2}
             
         )
         link((self.state, 'visible'), (self.map_layer, 'visible'))
@@ -407,7 +409,7 @@ class MapRegionLayerArtist(LayerArtist):
                 def feature_color(feature):
                     feature_name = feature["id"]
                     region_color = color2hex(self.state.cmap(mapping[feature_name]))
-                    return {'fillColor': region_color, 'color': region_color}
+                    return {'fillColor': region_color, 'color': region_color, 'weight':self.border_weight}
 
                 # This logic does not seem to work when we change the color first and then go back to linear?
                 old_style = self.map_layer.style
@@ -423,16 +425,14 @@ class MapRegionLayerArtist(LayerArtist):
                 
             elif self.state.color_mode == 'Fixed' and self.state.color is not None:
                 #my_logger.warning(f"Setting color for Fixed color...")
-
-                self.map_layer.style = {'color':self.state.color, 'fillColor':self.state.color}
-            
+                self.map_layer.style = {'color':self.state.color, 'fillColor':self.state.color, 'weight':self.border_weight}
         #if force or 'color' in changed:
         #    if self.state.color is not None and self.state.color_mode == 'Fixed':
         #        self.map_layer.style = {'color':self.state.color, 'fillColor':self.state.color}
                 
         if force or 'alpha' in changed:
             if self.state.alpha is not None:
-                self.map_layer.style = {'fillOpacity':self.state.alpha}
-                self.map_layer.hover_style = {'fillOpacity':self.state.alpha+0.2}
+                self.map_layer.style = {'fillOpacity':self.state.alpha, 'opacity':self.state.alpha}
+                self.map_layer.hover_style = {'fillOpacity':self.state.alpha+0.2, 'opacity':self.state.alpha+0.2}
 
         self.enable()

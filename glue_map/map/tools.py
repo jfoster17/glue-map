@@ -76,7 +76,7 @@ class PointSelect(IpyLeafletSelectionTool):
         print("PointSelect activated...")
         
         def on_click(event, feature, **kwargs):
-            print("On click called...")
+            #print("On click called...")
             self.list_of_region_ids = []
             #print(f'{feature=}')
             feature_id = feature['id'] #This is the name of features in our geodata
@@ -84,14 +84,14 @@ class PointSelect(IpyLeafletSelectionTool):
             # List of region_ids should start with the current subset (how to get this?)
             active_subset = self.viewer.toolbar_active_subset.selected
             if active_subset:
-                print(f'activate_subset is: {active_subset}')
+                #print(f'activate_subset is: {active_subset}')
                 existing_subset_states = self.viewer.session.data_collection.subset_groups[active_subset[0]].subset_state
             else:
-                print("No active_subset")
+                #print("No active_subset")
                 existing_subset_states = None
             self.list_of_region_ids.append(int(feature_id))
             self.list_of_region_ids =  list(set(self.list_of_region_ids))
-            print(f"List of region ids to draw... {self.list_of_region_ids}")
+            #print(f"List of region ids to draw... {self.list_of_region_ids}")
             
             try:
                 coord = feature['geometry']['coordinates']
