@@ -48,7 +48,7 @@ class MapViewerState(ViewerState):
     lon_att = SelectionCallbackProperty(default_index=1, docstring='The attribute to display as longitude')
     lat_att = SelectionCallbackProperty(default_index=0, docstring='The attribute to display as latitude')
     
-    basemap = CallbackProperty(basemaps.Esri.WorldTopoMap)  # Nice and plain: basemaps.CartoDB.Positron
+    basemap = CallbackProperty(basemaps.CartoDB.Positron)  # Nice and plain: basemaps.CartoDB.Positron
 
     def __init__(self, **kwargs):
 
