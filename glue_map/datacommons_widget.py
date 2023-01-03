@@ -21,12 +21,15 @@ class GetDataButton(object):
             return
         self.button.disabled=True
         self.button.icon = 'spinner'
-        stat_vars_to_get = []
-        for x in self.stat_vars.values():
-            stat_vars_to_get.extend(x)
-        place_ids = list(self.parent.glue_data_object['place'])
-        new_data = dc.build_multivariate_dataframe(place_ids, stat_vars_to_get)
-        self.parent.update_data_collection(new_data)
+        try:
+            stat_vars_to_get = []
+            for x in self.stat_vars.values():
+                stat_vars_to_get.extend(x)
+            place_ids = list(self.parent.glue_data_object['place'])
+            new_data = dc.build_multivariate_dataframe(place_ids, stat_vars_to_get)
+            self.parent.update_data_collection(new_data)
+        except Exception as e: 
+            print(f"{e}")
         self.button.disabled=False
         self.button.icon = 'table'
     
@@ -114,8 +117,16 @@ class DataCommonsChoices(object):
                           'Prevalence: Physical Health Not Good':'Percent_Person_WithPhysicalHealthNotGood',
                          }
 
-        return [InputWidget(household_income_options,'Income', self.data_button),
-                InputWidget(health_options,'Health', self.data_button)]
+        environment_options = {'Lifetime Air Toxins Cancer Risk': 'AirPollutant_Cancer_Risk',
+                               'Mean Concentration: Diesel PM': 'Mean_Concentration_AirPollutant_DieselPM',
+                               #'Mean Ozone Concentration': 'Mean_Concentration_AirPollutant_Ozone',
+                               #'Mean PM2.5 Concentration': 'Mean_Concentration_AirPollutant_PM2.5',
+                        }
+
+
+        return [InputWidget(household_income_options, 'Income', self.data_button),
+                InputWidget(health_options, 'Health', self.data_button),
+                InputWidget(environment_options, 'Environment', self.data_button)]
 
 if __name__ == "__main__":
     dc_widget = DataCommonsChoices()
