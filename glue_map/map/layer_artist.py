@@ -19,7 +19,7 @@ import ipyleaflet
 from ipyleaflet.leaflet import LayerException, LayersControl, CircleMarker, Heatmap, GeoJSON, LayerGroup
 from branca.colormap import linear
 
-from glue.utils import defer_draw, color2hex
+from glue.utils import defer_draw, color2hex, ensure_numerical
 #from glue.logger import logger
 
 import logging
@@ -189,7 +189,7 @@ class MapPointsLayerArtist(LayerArtist):
             if self.state.display_mode == 'Individual Points':
                 if self.state.color_mode == 'Linear' and self.state.cmap_att is not None:
                     try:
-                        color_values = self.layer[self.state.cmap_att]
+                        color_values = ensure_numerical(self.layer[self.state.cmap_att]).astype(np.float32).ravel()
                     except IncompatibleAttribute:
                         self.disable_invalid_attributes(self.state.cmap_att)
                         return
@@ -222,7 +222,7 @@ class MapPointsLayerArtist(LayerArtist):
             if self.state.size_mode == 'Linear' and self.state.size_att is not None:
                 #print("Linear mode is active")
                 try:
-                    size_values = self.layer[self.state.size_att]
+                    size_values = ensure_numerical(self.layer[self.state.size_att]).astype(np.float32).ravel()
                 except IncompatibleAttribute:
                     self.disable_invalid_attributes(self.state.size_att)
                     return
@@ -401,7 +401,7 @@ class MapRegionLayerArtist(LayerArtist):
         if force or any(x in changed for x in ['cmap_att','color_mode','cmap','cmap_vmin','cmap_vmax','color']):
             if self.state.color_mode == 'Linear' and self.state.cmap_att is not None and self.state.cmap is not None:
                 try:
-                    cmap_values = self.layer[self.state.cmap_att]
+                    cmap_values = ensure_numerical(self.layer[self.state.cmap_att]).astype(np.float32).ravel()
                 except IncompatibleAttribute:
                     self.disable_invalid_attributes(self.state.cmap_att)
                     return
