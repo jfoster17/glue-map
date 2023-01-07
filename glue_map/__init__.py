@@ -7,6 +7,8 @@ def setup():
 
 
     red_to_green = ['#D9838D','#ECDF0B','#7CB6BD','#77A865']
+    green_to_red = ['#77A865','#7CB6BD','#ECDF0B','#D9838D']
+
     from glue.config import colormaps
     from matplotlib.colors import ListedColormap
     import matplotlib.cm as cm
@@ -19,3 +21,6 @@ def setup():
     colormaps.add('Oranges', cm.Oranges)
 
     colormaps.add('red_to_green',ListedColormap(red_to_green, name='red_to_green'))
+    colormaps.add('green_to_red',ListedColormap(green_to_red, name='green_to_red'))
+
+    colormaps.add('Grays 2', cm.Grays_r)
