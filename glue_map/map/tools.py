@@ -1,6 +1,7 @@
 import os
 import time
 
+import numpy as np
 from glue.config import viewer_tool
 from glue.core.roi import PolygonalROI, RectangularROI
 from glue.core.subset import MultiOrState, OrState, RoiSubsetState
@@ -67,9 +68,9 @@ class PointSelect(IpyLeafletSelectionTool):
         def on_click(event, feature, **kwargs):
             # print("On click called...")
             self.list_of_region_ids = []
-            # print(f'{feature=}')
+            # print(f"{feature=}")
             feature_id = feature["id"]  # This is the name of features in our geodata
-            print(feature_id)
+            # print(feature_id)
             # List of region_ids should start with the current subset (how to get this?)
             active_subset = self.viewer.toolbar_active_subset.selected
             if active_subset:
@@ -89,12 +90,13 @@ class PointSelect(IpyLeafletSelectionTool):
             try:
                 coord = feature["geometry"]["coordinates"]
                 new_subset_states = []
-                for (
-                    region
-                ) in coord:  # I think this should loop through MultiPolygon types
+                # print(np.array(coord).shape)
+                # I think this should loop through MultiPolygon types
+                for region in coord:
+                    # print(np.array(coord).shape)
                     lons = []
                     lats = []
-                    for k in region:
+                    for k in np.squeeze(region):
                         lons.append(k[0])
                         lats.append(k[1])
                     roi = PolygonalROI(vx=lons, vy=lats)
