@@ -468,7 +468,7 @@ class MapRegionLayerArtist(LayerArtist):
                 self.disable_invalid_attributes(self._viewer_state.lat_att)
                 return
 
-            if not len(lon) or len(lat):
+            if not (len(lon) and len(lat)):
                 return
             # my_logger.warning(f"Updating map_layer.data with regions...")
 
