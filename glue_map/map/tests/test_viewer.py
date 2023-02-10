@@ -9,6 +9,7 @@ from glue.core import Data
 from numpy.testing import assert_allclose
 
 from glue_map.data import GeoRegionData
+from glue_map.map.state import MapRegionLayerState
 
 DATA = os.path.join(os.path.dirname(__file__), "data")
 
@@ -55,7 +56,7 @@ def test_state_with_geopandas(mapapp, earthdata):
     mapapp.add_data(earthdata=earthdata)
     s = mapapp.new_data_viewer("map", data=earthdata)
     print(s.layers[0])
-    assert s.layers[0].state.layer_type == "regions"
+    assert isinstance(s.layers[0].state, MapRegionLayerState)
 
 
 def test_make_map_with_data(mapapp, mapdata):
