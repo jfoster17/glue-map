@@ -14,7 +14,7 @@ You can use glue-map and glue-jupyter for analysis within a Jupyter Lab session 
 
 ## Install
 
-`pip install git+:https://github.com/jfoster17/glue-map.git`
+`pip install git+https://github.com/jfoster17/glue-map.git`
 
 
 ## Example
