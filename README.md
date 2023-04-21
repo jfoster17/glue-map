@@ -28,14 +28,16 @@ Activate the new environment:
 
 `conda activate glue-map-with-voila-gridstack`
 
-Alternatively, if you already have a working environment wi
+Alternatively, if you already have a working environment for glue-jupyter you can simply do:
 
 `pip install git+https://github.com/jfoster17/glue-map.git`
 
 
 ## Example
 
-A sample folder is included 
+A sample notebook is included in notebooks/glue-map-demo.ipynb
+
+This notebook is configured for use with voila-gridstack. 
 
 ![Idalmis-demo](https://user-images.githubusercontent.com/3639698/215539329-6b752e63-789d-4fda-8fcd-f7ecfdeeed51.png)
 
