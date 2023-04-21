@@ -22,7 +22,7 @@ First, grab the repository code:
 
 Then create a new virtual environment using `conda` or `mamba`:
 
-`conda env create -f environment.yml`
+`conda env create -c conda-forge -f environment.yml`
 
 Activate the new environment:
 
@@ -37,10 +37,20 @@ Alternatively, if you already have a working environment for glue-jupyter you ca
 
 A sample notebook is included in notebooks/glue-map-demo.ipynb
 
-This notebook is configured for use with voila-gridstack. 
+This notebook is configured for use with voila-gridstack to enable better layout of multiple viewers. With the recommended environment, you can show the gridstack layout from within jupyter lab as shown below.
+
+![Show-in-voila](https://user-images.githubusercontent.com/3639698/233699762-7f8a17c7-e76a-42b6-ab4b-489201f4d703.gif)
+
+Alternatively you can invoke directly from the command line as:
+
+`voila glue-map-demo.ipynb --template=gridstack`
+
+To edit the existing layout, including adding different viewers or changing their position, user the button highlighted in red within jupyter-lab to change the layout:
+![configure-layout](https://user-images.githubusercontent.com/3639698/233700436-bdec620e-7e11-4f86-a0cb-7de1ddfdd065.png)
+
+Another example:
 
 ![Idalmis-demo](https://user-images.githubusercontent.com/3639698/215539329-6b752e63-789d-4fda-8fcd-f7ecfdeeed51.png)
-
 
 ## Testing Commands
 Since we cannot easily get error messages from glue-jupyter when a plug-in fails to load, do this:
