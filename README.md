@@ -14,10 +14,28 @@ You can use glue-map and glue-jupyter for analysis within a Jupyter Lab session 
 
 ## Install
 
+Because several of the underlying packages require very specific versions to work together, the easiest way to get a fully functional environment that includes voila and voila-gridstack for layout is to use conda/mamba to install this plug-in into a new virtual environment.
+
+First, grab the repository code:
+
+`git clone https://github.com/jfoster17/glue-map.git`
+
+Then create a new virtual environment using `conda` or `mamba`:
+
+`conda env create -f environment.yml`
+
+Activate the new environment:
+
+`conda activate glue-map-with-voila-gridstack`
+
+Alternatively, if you already have a working environment wi
+
 `pip install git+https://github.com/jfoster17/glue-map.git`
 
 
 ## Example
+
+A sample folder is included 
 
 ![Idalmis-demo](https://user-images.githubusercontent.com/3639698/215539329-6b752e63-789d-4fda-8fcd-f7ecfdeeed51.png)
 
