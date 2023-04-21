@@ -1,5 +1,9 @@
-from echo import (CallbackProperty, SelectionCallbackProperty, delay_callback,
-                  keep_in_sync)
+from echo import (
+    CallbackProperty,
+    SelectionCallbackProperty,
+    delay_callback,
+    keep_in_sync,
+)
 from glue.config import colormaps
 from glue.core.data_combo_helper import ComponentIDComboHelper
 from glue.core.state_objects import StateAttributeLimitsHelper
@@ -43,7 +47,6 @@ class MapViewerState(ViewerState):
     )  # Nice and plain: basemaps.CartoDB.Positron
 
     def __init__(self, **kwargs):
-
         super(MapViewerState, self).__init__()
         self.lat_att_helper = ComponentIDComboHelper(
             self,
@@ -92,7 +95,6 @@ class MapRegionLayerState(LayerState):
     name = ""  # Name for display
 
     def __init__(self, layer=None, **kwargs):
-
         super(MapRegionLayerState, self).__init__(layer=layer)
 
         self._sync_color = keep_in_sync(self, "color", self.layer.style, "color")
@@ -194,7 +196,6 @@ class MapPointsLayerState(LayerState):
     name = ""  # Name for display
 
     def __init__(self, layer=None, **kwargs):
-
         self._sync_markersize = None
 
         super(MapPointsLayerState, self).__init__(layer=layer)

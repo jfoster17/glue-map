@@ -1,6 +1,7 @@
 import ipyleaflet
 import ipywidgets
 from glue.core.subset import roi_to_subset_state
+
 # from glue.logger import logger
 from glue.utils import color2hex
 from glue_jupyter.link import dlink, link

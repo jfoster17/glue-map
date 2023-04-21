@@ -22,7 +22,6 @@ class InteractCheckableTool(CheckableTool):
         self.viewer = viewer
 
     def activate(self):
-
         # Disable any active tool in other viewers
         for viewer in self.viewer.session.application.viewers:
             if viewer is not self.viewer:
@@ -46,7 +45,6 @@ class IpyLeafletSelectionTool(InteractCheckableTool):
 
 @viewer_tool
 class PointSelect(IpyLeafletSelectionTool):
-
     icon = "glue_crosshair"
     tool_id = "ipyleaflet:pointselect"
     action_text = "Select regions"
@@ -144,7 +142,6 @@ class PointSelect(IpyLeafletSelectionTool):
 
 @viewer_tool
 class RectangleSelect(IpyLeafletSelectionTool):
-
     icon = "glue_square"
     tool_id = "ipyleaflet:rectangleselect"
     action_text = "Rectangular ROI"
@@ -216,7 +213,6 @@ class RectangleSelect(IpyLeafletSelectionTool):
 
 @viewer_tool
 class HomeTool(Tool):
-
     tool_id = "ipyleaflet:home"
     icon = "glue_home"
     action_text = "Home"
