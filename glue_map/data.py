@@ -36,6 +36,12 @@ class GeoRegionData(RegionData):
     **kwargs :
         Any additional keyword arguments are passed to the
         :class:`~glue.core.data.Data` constructor.
+
+    Attributes
+    ----------
+    geometry : array of `shapely.Geometry`` objects
+        The actual shapely geometry objects
+
     """
 
     def __init__(self, data, label="", coords=None, **kwargs):
@@ -73,6 +79,7 @@ class GeoRegionData(RegionData):
     @property
     def geometry(self):
         return self.get_component(self.extended_component_id).data
+
 
 @data_translator(geopandas.GeoDataFrame)
 class GeoPandasTranslator:
