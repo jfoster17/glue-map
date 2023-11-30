@@ -3,7 +3,7 @@ def setup():
 
     from .map.viewer import IPyLeafletMapViewer
 
-    viewer_registry.add("map", IPyLeafletMapViewer)
+    viewer_registry.add("Map", IPyLeafletMapViewer)
     from glue.config import settings
 
     settings.SUBSET_COLORS = ["#1F78B4", "#FF7F00", "#E31A1C", "#FB9A99"]

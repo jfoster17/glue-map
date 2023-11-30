@@ -70,7 +70,7 @@ class MapPointsLayerArtist(LayerArtist):
         else:  # Heatmap is the default
             self.map_layer = Heatmap(locations=self._coords)
 
-        self.map.add_layer(self.map_layer)
+        self.map.add(self.map_layer)
 
         self.state.add_global_callback(self._update_presentation)
         # self._viewer_state.add_global_callback(self._update_presentation)
@@ -142,7 +142,7 @@ class MapPointsLayerArtist(LayerArtist):
                 try:
                     self.map.remove_layer(self.map_layer)
                     self.map_layer = LayerGroup(layers=self._markers)
-                    self.map.add_layer(self.map_layer)
+                    self.map.add(self.map_layer)
                 except ipyleaflet.LayerException:
                     pass
             else:
@@ -151,13 +151,13 @@ class MapPointsLayerArtist(LayerArtist):
                     locations=self._coords
                 )  # This is not quite right
                 # because we don't have state objects that describe all these other things that go into a Heatmap
-                self.map.add_layer(self.map_layer)
+                self.map.add(self.map_layer)
 
         if self.visible is False:
             self.clear()
         else:
             try:
-                self.map.add_layer(self.map_layer)
+                self.map.add(self.map_layer)
             except ipyleaflet.LayerException:
                 pass
 
@@ -248,7 +248,7 @@ class MapPointsLayerArtist(LayerArtist):
                     self.map.remove_layer(self.map_layer)
                     color = color2hex(self.state.color)
                     self.map_layer.gradient = {0: color, 1: color}
-                    self.map.add_layer(self.map_layer)
+                    self.map.add(self.map_layer)
                 except ipyleaflet.LayerException:
                     pass
 
@@ -294,7 +294,7 @@ class MapPointsLayerArtist(LayerArtist):
                             (val + 1) * self.state.size_scaling * 5
                         )  # So we always show the points
                         # print(int(val)+1)
-                # self.map.add_layer(self.map_layer)
+                # self.map.add(self.map_layer)
 
             else:
                 size_values = None
@@ -308,7 +308,7 @@ class MapPointsLayerArtist(LayerArtist):
                             self.state.size * self.state.size_scaling
                         )
                         self.map_layer.blur = self.map_layer.radius / 10
-                        self.map.add_layer(self.map_layer)
+                        self.map.add(self.map_layer)
                     except ipyleaflet.LayerException:
                         pass
 
@@ -322,7 +322,7 @@ class MapPointsLayerArtist(LayerArtist):
                     self.map_layer.min_opacity = (
                         self.state.alpha
                     )  # This is not quite right, but close enough
-                    self.map.add_layer(self.map_layer)
+                    self.map.add(self.map_layer)
                 except ipyleaflet.LayerException:
                     pass
 
@@ -447,7 +447,7 @@ class MapRegionLayerArtist(LayerArtist):
             self.clear()
         else:
             try:
-                self.map.add_layer(self.map_layer)
+                self.map.add(self.map_layer)
             except ipyleaflet.LayerException:
                 pass
 

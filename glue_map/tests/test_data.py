@@ -1,4 +1,5 @@
 import geopandas
+import geodatasets
 import numpy as np
 import pytest
 from geopandas.testing import assert_geodataframe_equal
@@ -9,7 +10,7 @@ from ..data import GeoRegionData, InvalidGeoData
 
 @pytest.fixture
 def nycbb():
-    path_to_data = geopandas.datasets.get_path("nybb")
+    path_to_data = geodatasets.get_path("nybb")
     gdf = geopandas.read_file(path_to_data)
     nyc_boroughs = GeoRegionData(gdf, "nyc_boroughs")
     print(nyc_boroughs)
@@ -19,16 +20,16 @@ def nycbb():
 
 @pytest.fixture
 def gdf():
-    path_to_data = geopandas.datasets.get_path("nybb")
+    path_to_data = geodatasets.get_path("nybb")
     gdf = geopandas.read_file(path_to_data)
     return gdf
 
 
 @pytest.fixture
 def earthdata():
-    path_to_data = geopandas.datasets.get_path("naturalearth_lowres")
+    path_to_data = geodatasets.get_path("naturalearth land")
     gdf = geopandas.read_file(path_to_data)
-    earthdata = GeoRegionData(gdf, "countries")
+    earthdata = GeoRegionData(gdf, "land polygons")
     return earthdata
 
 
@@ -41,7 +42,7 @@ def test_creation(nycbb):
 def test_error_on_bad_creation():
     not_geo_data = np.array(([1, 2, 3], [3, 4, 5]))
     with pytest.raises(InvalidGeoData):
-        glue_data = GeoRegionData(not_geo_data, "bad")  # noqa
+        _ = GeoRegionData(not_geo_data, "bad")
 
 
 def test_define_on_init():
@@ -52,15 +53,12 @@ def test_define_on_init():
 
 def test_get_mask_element_subset_state(nycbb, gdf):
     subset = nycbb.new_subset()
-    subset.subset_state = ElementSubsetState(indices=[1, 2])
-    np.testing.assert_array_equal(nycbb.subsets[0].to_mask(), [0, 1, 1, 0, 0])
+    subset.subset_state = ElementSubsetState(indices=[1, 2, 3])
+    np.testing.assert_array_equal(nycbb.subsets[0].to_mask(), [0, 1, 1, 1, 0])
     auto_subset = nycbb.get_subset_object(
         subset_id=0, cls=geopandas.geodataframe.GeoDataFrame
     )
     assert isinstance(auto_subset, geopandas.GeoDataFrame)
-    hand_subset = gdf.iloc[[1, 2]].reset_index(drop=True)
+    hand_subset = gdf.iloc[[1, 2, 3]].reset_index(drop=True)
     assert len(auto_subset) == len(hand_subset)
-    # print(auto_subset)
-    # print(hand_subset)
     assert_geodataframe_equal(auto_subset, hand_subset)
-    # assert hand_subset ==

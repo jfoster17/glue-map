@@ -170,7 +170,7 @@ class RectangleSelect(IpyLeafletSelectionTool):
                     dash_array="5, 5",
                     color="gray",
                 )
-                self.viewer.map.add_layer(self.rect)
+                self.viewer.map.add(self.rect)
             elif kwargs["type"] == "mouseup" and self.start_coords:
                 # print(f'mouseup {kwargs["coordinates"]}')
                 self.end_coords = kwargs["coordinates"]

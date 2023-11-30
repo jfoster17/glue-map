@@ -1,6 +1,7 @@
 import os
 
 import geopandas
+import geodatasets
 import glue_jupyter as gj
 import numpy as np
 import pandas as pd
@@ -28,7 +29,7 @@ def capitols():
 
 @pytest.fixture
 def cities():
-    path_to_data = geopandas.datasets.get_path("naturalearth_cities")
+    path_to_data = geodatasets.get_path("naturalearth_cities")
     gdf = geopandas.read_file(path_to_data)
     cities = GeoRegionData(gdf, "cities")
     return cities
@@ -36,9 +37,9 @@ def cities():
 
 @pytest.fixture
 def earthdata():
-    path_to_data = geopandas.datasets.get_path("naturalearth_lowres")
+    path_to_data = geodatasets.get_path("naturalearth land")
     gdf = geopandas.read_file(path_to_data)
-    earthdata = GeoRegionData(gdf, "countries")
+    earthdata = GeoRegionData(gdf, "land polygons")
     return earthdata
 
 
@@ -54,20 +55,20 @@ def mapdata():
 
 def test_state_with_geopandas(mapapp, earthdata):
     mapapp.add_data(earthdata=earthdata)
-    s = mapapp.new_data_viewer("map", data=earthdata)
+    s = mapapp.new_data_viewer("Map", data=earthdata)
     print(s.layers[0])
     assert isinstance(s.layers[0].state, MapRegionLayerState)
 
 
 def test_make_map_with_data(mapapp, mapdata):
-    s = mapapp.new_data_viewer("map", data=mapdata)
+    s = mapapp.new_data_viewer("Map", data=mapdata)
     assert len(s.layers) == 1
 
 
 @pytest.mark.skip(reason="Cannot set state parameters at initialization yet")
 def test_make_map_with_data_and_component(mapapp, mapdata):
     print(mapdata.components)
-    s = mapapp.new_data_viewer("map", data=mapdata, color="Count_Person")
+    s = mapapp.new_data_viewer("Map", data=mapdata, color="Count_Person")
     assert len(s.layers) == 1
 
 
@@ -87,7 +88,7 @@ def test_colormap(mapapp, mapdata):
         ]
     )
     s = mapapp.new_data_viewer(
-        "map", data=mapdata, color="Count_Person", colormap="Purples_09"
+        "Map", data=mapdata, color="Count_Person", colormap="Purples_09"
     )
     assert s.layers[0].state.colormap == "Purples_09"
     assert_allclose(s.mapfigure.layers[1].colormap.colors, purple_test_colors)
@@ -100,7 +101,7 @@ def test_empty_map_set_init_and_check_sync(mapapp):
     initial_center = (-40, 100)
 
     s = mapapp.new_data_viewer(
-        "map", data=None, zoom_level=initial_zoom_level, center=initial_center
+        "Map", data=None, zoom_level=initial_zoom_level, center=initial_center
     )
     assert s.state.zoom_level == initial_zoom_level
     assert s.state.center == initial_center
@@ -113,11 +114,11 @@ def test_empty_map_set_init_and_check_sync(mapapp):
 
 
 def test_empty_map(mapapp):
-    s = mapapp.new_data_viewer("map", data=None)
+    s = mapapp.new_data_viewer("Map", data=None)
     assert len(s.layers) == 0
 
 
 def test_adding_data_to_empty_map(mapapp, mapdata):
-    s = mapapp.new_data_viewer("map", data=None)
+    s = mapapp.new_data_viewer("Map", data=None)
     s.add_data(mapdata)
     assert len(s.layers) == 1
