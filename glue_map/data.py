@@ -13,6 +13,18 @@ class InvalidGeoData(Exception):
     pass
 
 
+def make_nice_names(input_name):
+    """
+    Make nice names for the coordinate axes
+    """
+    mapping = {"Geodetic latitude": "Latitude", "Geodetic longitude": "Longitude"}
+    nice_name = mapping.get(input_name)
+    if nice_name:
+        return nice_name
+    else:
+        return input_name
+
+
 class GeoRegionData(RegionData):
     """
     A class to hold descriptions of geographic regions as GeoPandas
@@ -61,8 +73,8 @@ class GeoRegionData(RegionData):
                         self.add_component(values, label=name)
 
             self.centroids = data.representative_point()
-            cen_x_id = self.add_component(self.centroids.x, label='Center '+data.crs.axis_info[1].name)
-            cen_y_id = self.add_component(self.centroids.y, label='Center '+data.crs.axis_info[0].name)
+            cen_x_id = self.add_component(self.centroids.x, label='Center '+make_nice_names(data.crs.axis_info[1].name))
+            cen_y_id = self.add_component(self.centroids.y, label='Center '+make_nice_names(data.crs.axis_info[0].name))
             if isinstance(data, geopandas.GeoSeries):
                 geometries = data
             else:

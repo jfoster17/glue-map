@@ -9,6 +9,9 @@ from glue.core.data_combo_helper import ComponentIDComboHelper
 from glue.core.state_objects import StateAttributeLimitsHelper
 from glue.core.subset import Subset
 from glue.viewers.common.state import LayerState, ViewerState
+from glue.core.data import Data
+from glue_map.data import GeoRegionData
+
 from ipyleaflet import basemaps
 
 # my_logger = logging.getLogger("")
@@ -69,12 +72,24 @@ class MapViewerState(ViewerState):
         )
 
         self.add_callback("layers", self._on_layers_changed)
+        self.lat_lon_init = False
         self._on_layers_changed()
         self.update_from_dict(kwargs)
 
     def _on_layers_changed(self, *args):
         self.lon_att_helper.set_multiple_data(self.layers_data)
         self.lat_att_helper.set_multiple_data(self.layers_data)
+        if not self.lat_lon_init and self.layers_data:
+            for data in self.layers_data:
+                if isinstance(data, Data):
+                    actual_data = data
+                else:
+                    actual_data = data.data
+                if isinstance(actual_data, GeoRegionData):
+                    self.lat_att = actual_data.center_y_id
+                    self.lon_att = actual_data.center_x_id
+                    self.lat_lon_init = True
+                    break
 
 
 class MapRegionLayerState(LayerState):
