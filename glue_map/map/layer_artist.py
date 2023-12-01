@@ -4,6 +4,7 @@ import random
 import ipyleaflet
 import numpy as np
 from glue.core.exceptions import IncompatibleAttribute
+from glue.core.data import BaseData
 from glue.utils import color2hex, ensure_numerical
 from glue.viewers.common.layer_artist import LayerArtist
 from glue_jupyter.link import link
@@ -456,16 +457,29 @@ class MapRegionLayerArtist(LayerArtist):
             # we do not need them for display, we want to ensure
             # that the attributes are linked with other layers
             # print("Inside lat/lon if statement")
+
+            if self.layer is not None:
+                if isinstance(self.layer, BaseData):
+                    data = self.layer
+                else:
+                    data = self.layer.data
+
             try:
+                if (not data.linked_to_center_comp(self._viewer_state.lon_att)):
+                    raise IncompatibleAttribute
                 lon = self.layer[self._viewer_state.lon_att]
             except IncompatibleAttribute:
                 self.disable_invalid_attributes(self._viewer_state.lon_att)
+                self.disable("Bad!")
                 return
 
             try:
+                if (not data.linked_to_center_comp(self._viewer_state.lat_att)):
+                    raise IncompatibleAttribute
                 lat = self.layer[self._viewer_state.lat_att]
             except IncompatibleAttribute:
                 self.disable_invalid_attributes(self._viewer_state.lat_att)
+                self.disable("Bad!")
                 return
 
             if not (len(lon) and len(lat)):
