@@ -121,7 +121,7 @@ class GeoPandasTranslator:
         for cid in data_or_subset.components:
             if (cid not in coords) and (cid not in centroids):
                 if cid == extended_cid:
-                    g = geopandas.GeoSeries(data_or_subset[cid].values) # use values to avoid getting the index
+                    g = geopandas.GeoSeries(data_or_subset[cid].values)  # use values to avoid getting the index
                     gdf.set_geometry(g, inplace=True)
                 else:
                     gdf[cid.label] = data_or_subset[cid]

@@ -82,7 +82,7 @@ class PointsLayerStateWidget(VBox):
             lambda value: None if value == display_mode_options[1] else "none",
         )
 
-        ## Only show simple color_widget for Individual Points mode
+        # Only show simple color_widget for Individual Points mode
         # dlink((self.widget_display_mode, 'value'), (self.simple_color_widgets.layout, 'display'),
         #    lambda value: None if value == display_mode_options[0] else 'none')
 

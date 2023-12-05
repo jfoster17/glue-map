@@ -467,7 +467,10 @@ class MapRegionLayerArtist(LayerArtist):
             try:
                 if (not data.linked_to_center_comp(self._viewer_state.lon_att)):
                     raise IncompatibleAttribute
-                lon = self.layer[self._viewer_state.lon_att]
+                lon = data[self._viewer_state.lon_att]
+                datalon = data[data.center_x_id]
+                if not np.array_equal(lon, datalon):
+                    raise IncompatibleAttribute
             except IncompatibleAttribute:
                 self.disable_invalid_attributes(self._viewer_state.lon_att)
                 self.disable("Bad!")
@@ -476,7 +479,11 @@ class MapRegionLayerArtist(LayerArtist):
             try:
                 if (not data.linked_to_center_comp(self._viewer_state.lat_att)):
                     raise IncompatibleAttribute
-                lat = self.layer[self._viewer_state.lat_att]
+                lat = data[self._viewer_state.lat_att]
+                datalat = data[data.center_y_id]
+                if not np.array_equal(lat, datalat):
+                    raise IncompatibleAttribute
+
             except IncompatibleAttribute:
                 self.disable_invalid_attributes(self._viewer_state.lat_att)
                 self.disable("Bad!")
