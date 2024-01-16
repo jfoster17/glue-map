@@ -3,13 +3,75 @@ from glue.config import data_translator
 from glue.core.component_id import ComponentIDList
 from glue.core.data import Data
 from glue.core.subset import Subset
+from glue.core.coordinates import Coordinates
+import numpy as np
+import xarray as xr
+import warnings
+warnings.filterwarnings('ignore') # setting ignore as a parameter
 
 __all__ = ["InvalidGeoData", "GeoRegionData", "GeoPandasTranslator"]
+
 
 
 class InvalidGeoData(Exception):
     pass
 
+class XarrayCoordinates(Coordinates):
+    
+    def __init__(self, xarr, **kwargs):
+        self.wc = [np.asarray(w) for w in xarr.indexes.values()]
+        self.pc = [np.arange(len(wc)) for wc in self.wc]
+        super().__init__(**kwargs)
+    
+    def pixel_to_world_values(self, *args):
+        world_values = tuple([np.interp(arg, self.pc[i], self.wc[i]) for i,arg in enumerate(args)])
+        return world_values
+
+    
+    def world_to_pixel_values(self, *args):
+        pixel_values = tuple([np.interp(arg, self.wc[i], self.pc[i]) for i, arge in enumerate(args)])
+        return pixel_values
+
+    @property
+    def world_axis_units(self):
+        # Returns an iterable of strings given the units of the world
+        # coordinates for each axis. TODO: Generalize!
+        return ['degrees_north','degrees_east','months since 1980-01-01']
+
+    @property
+    def world_axis_names(self):
+        # Returns an iterable of strings given the names of the world
+        # coordinates for each axis. TODO: Generalize!
+        return ['Latitude','Longitude','Time']
+
+crs_string = 'GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563,AUTHORITY["EPSG","7030"]],AUTHORITY["EPSG","6326"]],PRIMEM["Greenwich",0,AUTHORITY["EPSG","8901"]],UNIT["degree",0.0174532925199433,AUTHORITY["EPSG","9122"]],AXIS["Latitude",NORTH],AXIS["Longitude",EAST],AUTHORITY["EPSG","4326"]]'
+
+class XarrayData(Data):
+    """
+    A class to access Xarrays through glue. This requires the dataset
+    to be loaded as a dask array.
+
+    We retain a reference to the original xarray dataset so that we
+    can plot it directly in xarray-leaflet.
+
+    We force the crs to be WGS84, which is the only crs natively?
+    supported by xarray-leaflet. This should be a conversion, but
+    we need something in here even if the xarray dataset does not
+    specify.
+
+    >> remote_data = xr.open_dataset(
+    >>    'https://mynasadata.larc.nasa.gov/thredds/dodsC/MERRA2_T2M_agg',
+    >>     decode_times=False,
+    >>    chunks={'mrtime': 10} #This produces dask arrays)
+    """
+    def __init__(self, input_xarray, label="", coords=None):
+        components = {x:input_xarray[x].data for x in input_xarray.data_vars.variables}
+        remote_data = xr.open_dataset(
+                "https://mynasadata.larc.nasa.gov/thredds/dodsC/MERRA2_T2M_agg",
+                decode_times=False
+                )
+        self.xarr = remote_data.rio.write_crs(crs_string)
+        super().__init__(label=label, coords=coords, **components)
 
 class GeoRegionData(Data):
     """

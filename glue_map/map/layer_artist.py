@@ -4,21 +4,24 @@ import random
 import ipyleaflet
 import numpy as np
 from glue.core.exceptions import IncompatibleAttribute
+from glue.core.data import Data
 from glue.utils import color2hex, ensure_numerical
 from glue.viewers.common.layer_artist import LayerArtist
 from glue_jupyter.link import link
-from ipyleaflet.leaflet import CircleMarker, GeoJSON, Heatmap, LayerGroup
+from ipyleaflet.leaflet import CircleMarker, GeoJSON, Heatmap, LayerGroup, LayerException
+import xarray_leaflet # noqa
+import matplotlib.pyplot as plt
 
 from ..data import GeoPandasTranslator
-from .state import MapPointsLayerState, MapRegionLayerState
-
+from .state import MapPointsLayerState, MapRegionLayerState, MapXarrayLayerState
+from .utils import sim
 # from glue.logger import logger
 
 
 # my_logger = logging.getLogger("")
 # my_logger.setLevel(logging.WARNING)
 
-__all__ = ["MapRegionLayerArtist", "MapPointsLayerArtist"]
+__all__ = ["MapRegionLayerArtist", "MapPointsLayerArtist","MapXarrayLayerArtist"]
 
 
 RESET_TABLE_PROPERTIES = (
@@ -278,7 +281,7 @@ class MapPointsLayerArtist(LayerArtist):
                     return
 
                 if self.state.display_mode == "Individual Points":
-                    print("Calculating sizes")
+                    #print("Calculating sizes")
                     if "size_vmin" not in changed and "size_att" in changed:
                         self.state.size_vmin = min(
                             size_values
@@ -433,7 +436,7 @@ class MapRegionLayerArtist(LayerArtist):
 
         changed = set() if force else self.pop_changed_properties()
         # my_logger.warning(f"These variables have changed: {changed}")
-
+        #print(f"{changed=}")
         if (
             not changed and not force
         ):  # or len(changed) > 6: #For some reason the first time we change anything, everything get changed.
@@ -560,4 +563,119 @@ class MapRegionLayerArtist(LayerArtist):
                     "opacity": self.state.alpha + 0.2,
                 }
 
+        self.enable()
+
+
+
+class MapXarrayLayerArtist(LayerArtist):
+    """
+    Display a regularly gridded Xarray dataset on the map using xarray-leaflet
+    """
+    _layer_state_cls = MapXarrayLayerState
+    _removed = False
+
+    def __init__(self, viewer_state, map=None, layer_state=None, layer=None):
+        super().__init__(
+            viewer_state, layer_state=layer_state, layer=layer
+        )
+        self.layer = layer
+        self.layer_id = "{0:08x}".format(random.getrandbits(32))
+        self.map = map
+        self.zorder = self.state.zorder
+        self.visible = self.state.visible
+        self.xarray_layer = None
+        # In theory we want something like this, but we don't have an xarray_layer
+        # at the start, so we can't set the opacity right away
+        #dlink((self.state, 'alpha'), (self.line_mark, 'opacities'), lambda x: [x])
+
+
+    def remove(self):
+        self._removed = True
+        self.clear()
+
+    def redraw(self):
+        pass
+
+    def update(self):
+        if (
+            self.map is None
+            or self.state.layer is None
+            or self._viewer_state.lat_att is None
+            or self._viewer_state.lon_att is None
+        ):
+            return
+        # my_logger.warning(f"*** MapRegionLayerArtist.update ***")
+
+        self._update_presentation(force=True)
+
+    def _update_presentation(self, force=False, **kwargs):
+        """ """
+        # my_logger.warning(f"*** MapRegionLayerArtist._update_presentation ***")
+
+        # my_logger.warning(f"updating Map for regions in {self.layer.label} with {force=}")
+
+        if self._removed:
+            return
+
+        changed = set() if force else self.pop_changed_properties()
+        # my_logger.warning(f"These variables have changed: {changed}")
+        #print(f"These variables have changed: {changed}")
+
+        if (
+            not changed and not force
+        ):  # or len(changed) > 6: #For some reason the first time we change anything, everything get changed.
+            # This is a hack around it.
+            return  # Bail quickly
+
+        if self._viewer_state.lon_att is None or self._viewer_state.lat_att is None:
+            self.clear()
+
+        if self.visible is False:
+            self.clear()
+        #else:
+        #    try:
+        #        self.map.add_layer(self.map_layer)
+        #    except ipyleaflet.LayerException:
+        #        pass
+
+        if force or any(x in changed for x in ["lon_att", "lat_att", "t"]):
+            # We try to get lat and lon attributes because even though
+            # we do not need them for display, we want to ensure
+            # that the attributes are linked with other layers
+            #print("Inside lat/lon if statement")
+            #print(f"{self.layer=}")
+            #print(f"{self._viewer_state.lon_att=}")
+            #print(f"{self._viewer_state.lat_att=}")
+
+            try:
+                lon = self.layer[self._viewer_state.lon_att]
+            except IncompatibleAttribute:
+                self.disable_invalid_attributes(self._viewer_state.lon_att)
+                return
+
+            try:
+                lat = self.layer[self._viewer_state.lat_att]
+            except IncompatibleAttribute:
+                self.disable_invalid_attributes(self._viewer_state.lat_att)
+                return
+
+            if not (len(lon) and len(lat)):
+                return
+            # my_logger.warning(f"Updating map_layer.data with regions...")
+            #print("We have some lats and long...")
+            try:
+                self.map.remove_layer(self.xarray_layer)
+            except LayerException:
+                pass
+
+            # Check if this is a subset
+            if isinstance(self.layer, Data):
+                self._xarray = self.layer.xarr['T2M'][self.state.t] # How to deal with subsets, in fact?
+                self.xarray_layer = self._xarray.leaflet.plot(self.map, colormap=plt.cm.coolwarm,
+                        dynamic=False, y_dim='lat', x_dim='lon', fit_bounds=False, get_base_url=sim)
+            else:
+                self._xarray = self.layer.xarr['T2M'][self.state.t] # How to deal with subsets, in fact?
+                self.xarray_layer = self._xarray.leaflet.plot(self.map, colormap=plt.cm.Greys,
+                        dynamic=False, y_dim='lat', x_dim='lon', fit_bounds=False, get_base_url=sim)
+            
         self.enable()

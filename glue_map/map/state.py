@@ -9,7 +9,7 @@ from glue.core.data_combo_helper import ComponentIDComboHelper
 from glue.core.state_objects import StateAttributeLimitsHelper
 from glue.core.subset import Subset
 from glue.viewers.common.state import LayerState, ViewerState
-from ipyleaflet import basemaps
+from ipyleaflet import basemaps, TileLayer
 
 # my_logger = logging.getLogger("")
 # my_logger.setLevel(logging.WARNING)
@@ -35,15 +35,17 @@ class MapViewerState(ViewerState):
     )
     zoom_level = CallbackProperty(4, docstring="Zoom level for the map")
 
+    # We really need a way to set these automagically for structured data
     lon_att = SelectionCallbackProperty(
-        default_index=1, docstring="The attribute to display as longitude"
+        default_index=-2, docstring="The attribute to display as longitude"
     )
     lat_att = SelectionCallbackProperty(
-        default_index=0, docstring="The attribute to display as latitude"
+        default_index=-1, docstring="The attribute to display as latitude"
     )
 
     basemap = CallbackProperty(
-        basemaps.CartoDB.Positron
+        TileLayer(url = 'https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}.png',name='CartoDB.LightNoLabels')
+        #basemaps.CartoDB.Positron
     )  # Nice and plain: basemaps.CartoDB.Positron
 
     def __init__(self, **kwargs):
@@ -287,6 +289,95 @@ class MapPointsLayerState(LayerState):
 
     def flip_size(self):
         self.size_lim_helper.flip_limits()
+
+    def flip_cmap(self):
+        self.cmap_lim_helper.flip_limits()
+
+    @property
+    def viewer_state(self):
+        return self._viewer_state
+
+    @viewer_state.setter
+    def viewer_state(self, viewer_state):
+        self._viewer_state = viewer_state
+
+
+class MapXarrayLayerState(LayerState):
+    layer = CallbackProperty()
+    color = CallbackProperty()
+    size = CallbackProperty()
+    alpha = CallbackProperty()
+
+    color_mode = SelectionCallbackProperty(default_index=0)
+    cmap_att = SelectionCallbackProperty()
+    cmap_vmin = CallbackProperty()
+    cmap_vmax = CallbackProperty()
+    cmap = CallbackProperty()
+    cmap_mode = color_mode
+
+    cmap_limits_cache = CallbackProperty({})
+
+    name = ""  # Name for display
+
+    t = CallbackProperty(0)
+
+    def __init__(self, layer=None, **kwargs):
+        super(MapXarrayLayerState, self).__init__(layer=layer)
+
+        self._sync_color = keep_in_sync(self, "color", self.layer.style, "color")
+        self._sync_alpha = keep_in_sync(self, "alpha", self.layer.style, "alpha")
+
+        self.color = self.layer.style.color
+        self.alpha = self.layer.style.alpha
+
+        self.cmap_att_helper = ComponentIDComboHelper(
+            self, "cmap_att", numeric=True, categorical=True
+        )
+
+        self.cmap_lim_helper = StateAttributeLimitsHelper(
+            self,
+            attribute="cmap_att",
+            lower="cmap_vmin",
+            upper="cmap_vmax",
+            cache=self.cmap_limits_cache,
+        )
+
+        self.add_callback("layer", self._on_layer_change)
+        if layer is not None:
+            self._on_layer_change()
+
+        self.cmap = colormaps.members[1][1]
+
+        MapXarrayLayerState.color_mode.set_choices(self, ["Fixed", "Linear"])
+
+        if isinstance(layer, Subset):
+            self.name = f"{self.name} {(self.layer.data.label)}"
+
+        self.update_from_dict(kwargs)
+        # my_logger.warning(f"{self=}")
+
+    def _on_layer_change(self, layer=None):
+        # my_logger.warning(f"Calling MapRegionLayerState._on_layer_change...")
+
+        with delay_callback(self, "cmap_vmin", "cmap_vmax"):
+            if self.layer is None:
+                self.cmap_att_helper.set_multiple_data([])
+            else:
+                self.cmap_att_helper.set_multiple_data([self.layer])
+
+    def _layer_changed(self):
+        """
+        Not sure I understand all the logic here
+        """
+        super(MapXarrayLayerState, self)._layer_changed()
+        # my_logger.warning(f"Calling MapRegionLayerState._layer_changed...")
+
+        if self._sync_color is not None:
+            self._sync_color.stop_syncing()
+
+        if self.layer is not None:
+            self.color = self.layer.style.color
+            self._sync_color = keep_in_sync(self, "color", self.layer.style, "color")
 
     def flip_cmap(self):
         self.cmap_lim_helper.flip_limits()
