@@ -10,6 +10,7 @@ from glue.viewers.common.layer_artist import LayerArtist
 from glue_jupyter.link import link
 from ipyleaflet.leaflet import CircleMarker, GeoJSON, Heatmap, LayerGroup, LayerException
 import xarray_leaflet # noqa
+from xarray_leaflet import LeafletMap
 import matplotlib.pyplot as plt
 
 from ..data import GeoPandasTranslator
@@ -587,7 +588,7 @@ class MapXarrayLayerArtist(LayerArtist):
         # In theory we want something like this, but we don't have an xarray_layer
         # at the start, so we can't set the opacity right away
         #dlink((self.state, 'alpha'), (self.line_mark, 'opacities'), lambda x: [x])
-
+        
 
     def remove(self):
         self._removed = True
@@ -642,10 +643,6 @@ class MapXarrayLayerArtist(LayerArtist):
             # We try to get lat and lon attributes because even though
             # we do not need them for display, we want to ensure
             # that the attributes are linked with other layers
-            #print("Inside lat/lon if statement")
-            #print(f"{self.layer=}")
-            #print(f"{self._viewer_state.lon_att=}")
-            #print(f"{self._viewer_state.lat_att=}")
 
             try:
                 lon = self.layer[self._viewer_state.lon_att]
@@ -668,14 +665,26 @@ class MapXarrayLayerArtist(LayerArtist):
             except LayerException:
                 pass
 
+
             # Check if this is a subset
             if isinstance(self.layer, Data):
-                self._xarray = self.layer.xarr['T2M'][self.state.t] # How to deal with subsets, in fact?
-                self.xarray_layer = self._xarray.leaflet.plot(self.map, colormap=plt.cm.coolwarm,
-                        dynamic=False, y_dim='lat', x_dim='lon', fit_bounds=False, get_base_url=sim)
+                self._xarray = self.layer.xarr # How to deal with subsets, in fact?
+
+                vmin = np.nanpercentile(self._xarray, 1)
+                vmax = np.nanpercentile(self._xarray, 99)
+                
+                def normalize_over_full_data(array, *args, **kwargs):
+                    array = (array - vmin) / (vmax - vmin)
+                    return array
+
+                self.xarray_map = LeafletMap(self._xarray)
+                self.map_layer = self.xarray_map.plot(self.map, colormap=plt.cm.coolwarm,
+                        dynamic=False, y_dim='latitude', x_dim='longitude', fit_bounds=False, get_base_url=sim,
+                        transform0 = normalize_over_full_data,)
             else:
-                self._xarray = self.layer.xarr['T2M'][self.state.t] # How to deal with subsets, in fact?
-                self.xarray_layer = self._xarray.leaflet.plot(self.map, colormap=plt.cm.Greys,
-                        dynamic=False, y_dim='lat', x_dim='lon', fit_bounds=False, get_base_url=sim)
+                pass
+                #self._xarray = self.layer.xarr[self.state.t] # How to deal with subsets, in fact?
+                #self.xarray_layer = self._xarray.leaflet.plot(self.map, colormap=plt.cm.Greys,
+                #        dynamic=False, y_dim='latitude', x_dim='longitude', fit_bounds=False, get_base_url=sim)
             
         self.enable()

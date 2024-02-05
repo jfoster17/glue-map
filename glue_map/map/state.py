@@ -37,10 +37,10 @@ class MapViewerState(ViewerState):
 
     # We really need a way to set these automagically for structured data
     lon_att = SelectionCallbackProperty(
-        default_index=-2, docstring="The attribute to display as longitude"
+        default_index=-1, docstring="The attribute to display as longitude"
     )
     lat_att = SelectionCallbackProperty(
-        default_index=-1, docstring="The attribute to display as latitude"
+        default_index=-2, docstring="The attribute to display as latitude"
     )
 
     basemap = CallbackProperty(
