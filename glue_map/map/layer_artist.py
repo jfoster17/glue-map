@@ -8,14 +8,18 @@ from glue.core.data import Data
 from glue.utils import color2hex, ensure_numerical
 from glue.viewers.common.layer_artist import LayerArtist
 from glue_jupyter.link import link
-from ipyleaflet.leaflet import CircleMarker, GeoJSON, Heatmap, LayerGroup, LayerException
-import xarray_leaflet # noqa
-from xarray_leaflet import LeafletMap
+from ipyleaflet.leaflet import CircleMarker, GeoJSON, Heatmap, LayerGroup, ImageOverlay
 import matplotlib.pyplot as plt
+import PIL
+import PIL.Image
+from io import BytesIO
+from base64 import b64encode
+import rasterio
+from rasterio import Affine as A
+from rasterio.warp import reproject, Resampling
 
 from ..data import GeoPandasTranslator
 from .state import MapPointsLayerState, MapRegionLayerState, MapXarrayLayerState
-from .utils import sim
 # from glue.logger import logger
 
 
@@ -567,10 +571,9 @@ class MapRegionLayerArtist(LayerArtist):
         self.enable()
 
 
-
 class MapXarrayLayerArtist(LayerArtist):
     """
-    Display a regularly gridded Xarray dataset on the map using xarray-leaflet
+    Display a regularly gridded Xarray dataset on the map as an ImageOverlay
     """
     _layer_state_cls = MapXarrayLayerState
     _removed = False
@@ -584,11 +587,12 @@ class MapXarrayLayerArtist(LayerArtist):
         self.map = map
         self.zorder = self.state.zorder
         self.visible = self.state.visible
-        self.xarray_layer = None
-        # In theory we want something like this, but we don't have an xarray_layer
-        # at the start, so we can't set the opacity right away
-        #dlink((self.state, 'alpha'), (self.line_mark, 'opacities'), lambda x: [x])
-        
+        self.image_overlay_layer = ImageOverlay()
+        self.vmin = 0
+        self.vmax = 1
+        self.map.add(self.image_overlay_layer)
+        #  In theory we want something like this to link the opacity of the layer to the alpha of the state
+        #  dlink((self.state, 'alpha'), (self.image_overlay_layer, 'opacity'), lambda x: [x])
 
     def remove(self):
         self._removed = True
@@ -605,44 +609,30 @@ class MapXarrayLayerArtist(LayerArtist):
             or self._viewer_state.lon_att is None
         ):
             return
-        # my_logger.warning(f"*** MapRegionLayerArtist.update ***")
-
         self._update_presentation(force=True)
 
     def _update_presentation(self, force=False, **kwargs):
         """ """
-        # my_logger.warning(f"*** MapRegionLayerArtist._update_presentation ***")
-
-        # my_logger.warning(f"updating Map for regions in {self.layer.label} with {force=}")
-
         if self._removed:
             return
 
         changed = set() if force else self.pop_changed_properties()
-        # my_logger.warning(f"These variables have changed: {changed}")
-        #print(f"These variables have changed: {changed}")
 
-        if (
-            not changed and not force
-        ):  # or len(changed) > 6: #For some reason the first time we change anything, everything get changed.
-            # This is a hack around it.
+        if (not changed and not force): 
             return  # Bail quickly
 
-        if self._viewer_state.lon_att is None or self._viewer_state.lat_att is None:
+        if self._viewer_state.lon_att is None or self._viewer_state.lat_att is None or self.state.data_att is None:
             self.clear()
+            return
 
         if self.visible is False:
             self.clear()
-        #else:
-        #    try:
-        #        self.map.add_layer(self.map_layer)
-        #    except ipyleaflet.LayerException:
-        #        pass
+
+        if force or any(x in changed for x in ["data_att"]):
+            self.vmin = np.nanpercentile(self.layer[self.state.data_att], 1)
+            self.vmax = np.nanpercentile(self.layer[self.state.data_att], 99)
 
         if force or any(x in changed for x in ["lon_att", "lat_att", "t"]):
-            # We try to get lat and lon attributes because even though
-            # we do not need them for display, we want to ensure
-            # that the attributes are linked with other layers
 
             try:
                 lon = self.layer[self._viewer_state.lon_att]
@@ -658,33 +648,102 @@ class MapXarrayLayerArtist(LayerArtist):
 
             if not (len(lon) and len(lat)):
                 return
-            # my_logger.warning(f"Updating map_layer.data with regions...")
-            #print("We have some lats and long...")
-            try:
-                self.map.remove_layer(self.xarray_layer)
-            except LayerException:
-                pass
 
-
-            # Check if this is a subset
+            # Check if this is a data or a subset layer
             if isinstance(self.layer, Data):
-                self._xarray = self.layer.xarr # How to deal with subsets, in fact?
 
-                vmin = np.nanpercentile(self._xarray, 1)
-                vmax = np.nanpercentile(self._xarray, 99)
-                
+                bounds = [(lat.min(), lon.min()), (lat.max(), lon.max())]
+
                 def normalize_over_full_data(array, *args, **kwargs):
-                    array = (array - vmin) / (vmax - vmin)
+                    array = (array - self.vmin) / (self.vmax - self.vmin)
                     return array
-
-                self.xarray_map = LeafletMap(self._xarray)
-                self.map_layer = self.xarray_map.plot(self.map, colormap=plt.cm.coolwarm,
-                        dynamic=False, y_dim='latitude', x_dim='longitude', fit_bounds=False, get_base_url=sim,
-                        transform0 = normalize_over_full_data,)
+                data = self.layer[self.state.data_att][self.state.t]
+                imgurl = make_imageoverlay(data, bounds, normalize_over_full_data,
+                                           proj_refinement=1, colormap='coolwarm')
+                self.image_overlay_layer.url = imgurl
+                self.image_overlay_layer.bounds = bounds
             else:
                 pass
-                #self._xarray = self.layer.xarr[self.state.t] # How to deal with subsets, in fact?
-                #self.xarray_layer = self._xarray.leaflet.plot(self.map, colormap=plt.cm.Greys,
-                #        dynamic=False, y_dim='latitude', x_dim='longitude', fit_bounds=False, get_base_url=sim)
             
         self.enable()
+
+
+def project_array(array, bounds, refinement=2):
+    """
+    Project a numpy array defined in WGS84 coordinates to Mercator Web coordinate system
+    
+    ipyleaflets use the Mercator Web coordinate system.
+    :arg array: Data in 2D numpy array
+    :arg bounds: Image latitude, longitude bounds, [(lat_min, lon_min), (lat_max, lon_max)]
+    :kwarg int refinement: Scaling factor for output array resolution.
+        refinement=1 implies that output array has the same size as the input.
+    """
+    with rasterio.Env():
+
+        (lat_min, lon_min), (lat_max, lon_max) = bounds
+        nlat, nlon = array.shape
+        dlat = (lat_max - lat_min)/nlat
+        dlon = (lon_max - lon_min)/nlon
+        src_transform = A.translation(lon_min, lat_min) * A.scale(dlon, dlat)
+        src_crs = {'init': 'EPSG:4326'}
+
+        nlat2 = nlat*refinement
+        nlon2 = nlon*refinement
+        dst_shape = (nlat2, nlon2)
+        dst_crs = {'init': 'EPSG:3857'}
+        bbox = [lon_min, lat_min, lon_max, lat_max]
+        dst_transform, width, height = rasterio.warp.calculate_default_transform(
+            src_crs, dst_crs, nlon, nlat, *bbox, dst_width=nlon2, dst_height=nlat2)
+        dst_shape = height, width
+        destination = np.zeros(dst_shape)
+
+        reproject(
+            array,
+            destination,
+            src_transform=src_transform,
+            src_crs=src_crs,
+            dst_transform=dst_transform,
+            dst_crs=dst_crs,
+            resampling=Resampling.nearest)
+        return destination
+
+
+def make_imageoverlay(array, bounds, norm_func, mask=None, colormap='Blues', proj_refinement=4):
+    """
+    Make ImageOverlay from numpy array.
+    
+    
+    :arg array: Data in 2D numpy array.
+    :arg bounds: Image latitude, longitude bounds, [(lat_min, lon_min), (lat_max, lon_max)]
+    :kwarg mask: Optional mask to mark missing data in the array. If mask=None and array is
+        a masked array, its mask is used instead.
+    :kwarg colormap: matplotlib colormap
+    :kwarg int refinement: Scaling factor for output array resolution.
+        refinement=1 implies that output array has the same size as the input.
+    """
+    if mask is None and hasattr(array, 'mask'):
+        mask = array.mask
+    # project to Mercator Web coordinates
+    array_proj = project_array(array, bounds, refinement=proj_refinement)
+    cmap = plt.get_cmap(colormap)
+    array_mapped = cmap(norm_func(array_proj))
+    # convert to 8 bit int
+    array_int = np.uint8(array_mapped*255)
+    # make an image
+    im = PIL.Image.new('RGBA', array_proj.shape[::-1], color=None)
+    im_data = PIL.Image.fromarray(array_int)
+    im_mask = None
+    if mask is not None:
+        assert mask.shape == array.shape, 'array and mask shapes must be identical'
+        mask = project_array(mask.astype(float), bounds, refinement=proj_refinement)
+        # NOTE image mask marks non-masked pixels
+        mask_int = np.uint8(255*(1 - mask).astype(float))
+        im_mask = PIL.Image.fromarray(mask_int, mode='L')
+    im.paste(im_data, mask=im_mask)
+    # store image in memory
+    f = BytesIO()
+    im.save(f, 'png')
+    data = b64encode(f.getvalue())
+    data = data.decode('ascii')
+    imgurl = 'data:image/png;base64,' + data
+    return imgurl

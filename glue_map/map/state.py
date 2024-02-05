@@ -319,7 +319,8 @@ class MapXarrayLayerState(LayerState):
 
     name = ""  # Name for display
 
-    t = CallbackProperty(0)
+    t = CallbackProperty(7)
+    data_att = SelectionCallbackProperty(default_index=0)
 
     def __init__(self, layer=None, **kwargs):
         super(MapXarrayLayerState, self).__init__(layer=layer)
@@ -332,6 +333,10 @@ class MapXarrayLayerState(LayerState):
 
         self.cmap_att_helper = ComponentIDComboHelper(
             self, "cmap_att", numeric=True, categorical=True
+        )
+
+        self.data_att_helper = ComponentIDComboHelper(
+            self, "data_att", numeric=True,
         )
 
         self.cmap_lim_helper = StateAttributeLimitsHelper(
@@ -362,8 +367,11 @@ class MapXarrayLayerState(LayerState):
         with delay_callback(self, "cmap_vmin", "cmap_vmax"):
             if self.layer is None:
                 self.cmap_att_helper.set_multiple_data([])
+                self.data_att_helper.set_multiple_data([])
+
             else:
                 self.cmap_att_helper.set_multiple_data([self.layer])
+                self.data_att_helper.set_multiple_data([self.layer])
 
     def _layer_changed(self):
         """
