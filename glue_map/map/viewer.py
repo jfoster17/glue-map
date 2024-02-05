@@ -13,6 +13,7 @@ from ipywidgets import VBox
 from .layer_artist import MapPointsLayerArtist, MapRegionLayerArtist, MapXarrayLayerArtist
 from .state import MapViewerState
 from .state_widgets.viewer_map import MapViewerStateWidget
+from .state_widgets.layer_map import MapLayerStateWidget
 from .utils import get_geom_type
 
 __all__ = ["IPyLeafletMapViewer"]
@@ -148,7 +149,7 @@ class IPyLeafletMapViewer(IPyWidgetView):
     _layer_style_widget_cls = {
         MapRegionLayerArtist: RegionLayerStateWidget,  # Do our own RegionLayerStateWidget
         MapPointsLayerArtist: PointsLayerStateWidget,
-        MapXarrayLayerArtist: XarrayLayerStateWidget,
+        MapXarrayLayerArtist: MapLayerStateWidget,
 
     }
 
@@ -184,6 +185,7 @@ class IPyLeafletMapViewer(IPyWidgetView):
         elif get_geom_type(layer) == "points":
             cls = MapPointsLayerArtist
         elif get_geom_type(layer) == "xarray":
+            print("This is an xarray layer")
             cls = MapXarrayLayerArtist
         else:
             raise ValueError(

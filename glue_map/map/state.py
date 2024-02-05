@@ -192,8 +192,8 @@ class MapPointsLayerState(LayerState):
     cmap = CallbackProperty()
     cmap_mode = color_mode
 
-    size_limits_cache = CallbackProperty({})
-    cmap_limits_cache = CallbackProperty({})
+    #size_limits_cache = CallbackProperty()
+    #cmap_limits_cache = CallbackProperty()
 
     name = ""  # Name for display
 
@@ -308,19 +308,19 @@ class MapXarrayLayerState(LayerState):
     size = CallbackProperty()
     alpha = CallbackProperty()
 
+    t = CallbackProperty(7)
+    data_att = SelectionCallbackProperty()
+
     color_mode = SelectionCallbackProperty(default_index=0)
     cmap_att = SelectionCallbackProperty()
     cmap_vmin = CallbackProperty()
     cmap_vmax = CallbackProperty()
     cmap = CallbackProperty()
     cmap_mode = color_mode
-
-    cmap_limits_cache = CallbackProperty({})
+    as_steps = CallbackProperty(False)
+    #cmap_limits_cache = CallbackProperty({})
 
     name = ""  # Name for display
-
-    t = CallbackProperty(7)
-    data_att = SelectionCallbackProperty(default_index=0)
 
     def __init__(self, layer=None, **kwargs):
         super(MapXarrayLayerState, self).__init__(layer=layer)
@@ -344,7 +344,7 @@ class MapXarrayLayerState(LayerState):
             attribute="cmap_att",
             lower="cmap_vmin",
             upper="cmap_vmax",
-            cache=self.cmap_limits_cache,
+            #cache=self.cmap_limits_cache,
         )
 
         self.add_callback("layer", self._on_layer_change)
@@ -359,10 +359,8 @@ class MapXarrayLayerState(LayerState):
             self.name = f"{self.name} {(self.layer.data.label)}"
 
         self.update_from_dict(kwargs)
-        # my_logger.warning(f"{self=}")
 
     def _on_layer_change(self, layer=None):
-        # my_logger.warning(f"Calling MapRegionLayerState._on_layer_change...")
 
         with delay_callback(self, "cmap_vmin", "cmap_vmax"):
             if self.layer is None:
@@ -372,13 +370,13 @@ class MapXarrayLayerState(LayerState):
             else:
                 self.cmap_att_helper.set_multiple_data([self.layer])
                 self.data_att_helper.set_multiple_data([self.layer])
+                self.data_att = self.layer.main_components[0]
 
     def _layer_changed(self):
         """
         Not sure I understand all the logic here
         """
         super(MapXarrayLayerState, self)._layer_changed()
-        # my_logger.warning(f"Calling MapRegionLayerState._layer_changed...")
 
         if self._sync_color is not None:
             self._sync_color.stop_syncing()
