@@ -6,21 +6,70 @@ from glue.core.subset import Subset
 from glue.core.coordinates import Coordinates
 import numpy as np
 import xarray as xr
+import glob
+
 import warnings
 warnings.filterwarnings('ignore') # setting ignore as a parameter
 
 __all__ = ["InvalidGeoData", "GeoRegionData", "GeoPandasTranslator"]
 
 
+def load_tempo_data(directory, quality_flag='high'):
+    """
+    Read all the TEMPO datafiles from a given directory into a glue data object
+    """
+    input_files = glob.glob(f"{directory}/TEMPO_NO2_L3_V01_*_S*.nc")
+
+    input_data = []
+    for input_file in input_files:
+        coords = xr.open_dataset(input_file, engine='h5netcdf')  # Contains no data, does not chunk
+        product = xr.open_dataset(input_file, engine='h5netcdf', chunks={'xtrack': 256}, group='product')
+        geoloc = xr.open_dataset(input_file, engine='h5netcdf', chunks={'xtrack': 256}, group='geolocation')
+        support = xr.open_dataset(input_file, engine='h5netcdf', chunks={'xtrack': 256}, group='support_data')
+        product = product.assign_coords(coords.coords)
+        high_quality = (geoloc['solar_zenith_angle'] < 80) & (product['main_data_quality_flag'] == 0) & (support['eff_cloud_fraction'] < 0.2)
+        med_quality = (geoloc['solar_zenith_angle'] < 80) & (product['main_data_quality_flag'] == 0) & (support['eff_cloud_fraction'] < 0.4)
+        low_quality = (geoloc['solar_zenith_angle'] < 80) & (product['main_data_quality_flag'] == 0)
+        if quality_flag == 'high':
+            masked_product = product.where(high_quality)
+        elif quality_flag == 'medium':
+            masked_product = product.where(med_quality)
+        elif quality_flag == 'low':
+            masked_product = product.where(low_quality)
+        input_data.append(masked_product)
+    final_data = xr.combine_by_coords(input_data)
+    _ = final_data.rio.write_crs("epsg:4326", inplace=True)
+    final_data['vertical_column_troposphere'].name = 'NO2'
+    new_data = final_data['vertical_column_troposphere']
+    new_data = new_data.rio.write_nodata(np.nan, encoded=True)
+    no2_norm = 10**16
+    new_data.data = new_data.data/no2_norm
+    new_data.coords['time'] = range(len(new_data.coords['time']))  # Somehow req for glue
+    return XarrayData(new_data, label='tempo_no2', coords=XarrayCoordinates(new_data, n_dim=3))
+
 
 class InvalidGeoData(Exception):
     pass
 
 class XarrayCoordinates(Coordinates):
-    
+    """
+    A work-in-progress class to provide access to xarray coordinates.
+    Currently interpolates between pixel and world coordinates, which
+    is probably inefficient.
+
+    Does not yet handle units.
+    """
     def __init__(self, xarr, **kwargs):
         self.wc = [np.asarray(w) for w in xarr.indexes.values()]
         self.pc = [np.arange(len(wc)) for wc in self.wc]
+        self.coord_keys = xarr.coords.keys()
+        #self.units = []
+        #for coord in self.coord_keys:
+        #    try:
+        #        self.units.append(xarr[coord].units.split('_')[0][:-1]) #HACK
+        #    except AttributeError:
+        #        self.units.append("")
+
         super().__init__(**kwargs)
     
     def pixel_to_world_values(self, *args):
@@ -32,24 +81,23 @@ class XarrayCoordinates(Coordinates):
         pixel_values = tuple([np.interp(arg, self.wc[i], self.pc[i]) for i, arge in enumerate(args)])
         return pixel_values
 
-    @property
-    def world_axis_units(self):
-        # Returns an iterable of strings given the units of the world
-        # coordinates for each axis. TODO: Generalize!
-        return ['degrees_north','degrees_east','months since 1980-01-01']
+    #@property
+    #def world_axis_units(self):
+    #    # Returns an iterable of strings giving the units of the world
+    #    # coordinates for each axis.
+    #    return self.units
 
     @property
     def world_axis_names(self):
-        # Returns an iterable of strings given the names of the world
-        # coordinates for each axis. TODO: Generalize!
-        return ['Latitude','Longitude','Time']
+        # Returns an iterable of strings giving the names of the world
+        # coordinates for each axis.
+        return [x for x in self.coord_keys]
 
 crs_string = 'GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563,AUTHORITY["EPSG","7030"]],AUTHORITY["EPSG","6326"]],PRIMEM["Greenwich",0,AUTHORITY["EPSG","8901"]],UNIT["degree",0.0174532925199433,AUTHORITY["EPSG","9122"]],AXIS["Latitude",NORTH],AXIS["Longitude",EAST],AUTHORITY["EPSG","4326"]]'
 
 class XarrayData(Data):
     """
-    A class to access Xarrays through glue. This requires the dataset
-    to be loaded as a dask array.
+    A class to access Xarrays through glue.
 
     We retain a reference to the original xarray dataset so that we
     can plot it directly in xarray-leaflet.
@@ -59,18 +107,14 @@ class XarrayData(Data):
     we need something in here even if the xarray dataset does not
     specify.
 
-    >> remote_data = xr.open_dataset(
-    >>    'https://mynasadata.larc.nasa.gov/thredds/dodsC/MERRA2_T2M_agg',
-    >>     decode_times=False,
-    >>    chunks={'mrtime': 10} #This produces dask arrays)
     """
     def __init__(self, input_xarray, label="", coords=None):
-        components = {x:input_xarray[x].data for x in input_xarray.data_vars.variables}
-        remote_data = xr.open_dataset(
-                "https://mynasadata.larc.nasa.gov/thredds/dodsC/MERRA2_T2M_agg",
-                decode_times=False
-                )
-        self.xarr = remote_data.rio.write_crs(crs_string)
+        #This might be what we need for a DataSet
+        #components = {x:input_xarray[x].data for x in input_xarray.data_vars.variables}
+        #But for a single DataArray we just do this:
+        components = {input_xarray.name:input_xarray.data}
+        _ = input_xarray.rio.write_crs("epsg:4326", inplace=True)
+        self.xarr = input_xarray
         super().__init__(label=label, coords=coords, **components)
 
 class GeoRegionData(Data):
