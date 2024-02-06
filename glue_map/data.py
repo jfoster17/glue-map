@@ -113,7 +113,7 @@ class XarrayData(Data):
         #components = {x:input_xarray[x].data for x in input_xarray.data_vars.variables}
         #But for a single DataArray we just do this:
         components = {input_xarray.name:input_xarray.data}
-        _ = input_xarray.rio.write_crs("epsg:4326", inplace=True)
+        #_ = input_xarray.rio.write_crs("epsg:4326", inplace=True)
         self.xarr = input_xarray
         super().__init__(label=label, coords=coords, **components)
 

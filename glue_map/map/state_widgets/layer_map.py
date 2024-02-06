@@ -22,6 +22,7 @@ class MapLayerStateWidget(v.VuetifyTemplate):
 
     def __init__(self, layer_state):
         super().__init__()
+        print("I am making a MapLayerStateWidget")
 
         self.layer_state = layer_state
         self.glue_state = layer_state

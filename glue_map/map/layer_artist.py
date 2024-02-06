@@ -17,6 +17,8 @@ from base64 import b64encode
 import rasterio
 from rasterio import Affine as A
 from rasterio.warp import reproject, Resampling
+from time import time
+from glue.core.data_derived import IndexedData
 
 from ..data import GeoPandasTranslator
 from .state import MapPointsLayerState, MapRegionLayerState, MapXarrayLayerState
@@ -128,7 +130,6 @@ class MapPointsLayerArtist(LayerArtist):
             layer_group of circle markers: which can do all the cmap and size stuff
 
         """
-
         # print(f"Updating layer_artist for points in {self.layer.label} with {force=}")
 
         if self._removed:
@@ -432,6 +433,7 @@ class MapRegionLayerArtist(LayerArtist):
 
     def _update_presentation(self, force=False, **kwargs):
         """ """
+        
         # my_logger.warning(f"*** MapRegionLayerArtist._update_presentation ***")
 
         # my_logger.warning(f"updating Map for regions in {self.layer.label} with {force=}")
@@ -591,6 +593,11 @@ class MapXarrayLayerArtist(LayerArtist):
         self.vmin = 0
         self.vmax = 1
         self.map.add(self.image_overlay_layer)
+        self.bounds = [(0, 0), (0, 0)]
+        if isinstance(self.layer, Data):
+            self._sliced_data = IndexedData(self.layer, indices=(self.state.t, None, None))
+        else:
+            self._sliced_data = None
         #  In theory we want something like this to link the opacity of the layer to the alpha of the state
         #  dlink((self.state, 'alpha'), (self.image_overlay_layer, 'opacity'), lambda x: [x])
 
@@ -613,58 +620,77 @@ class MapXarrayLayerArtist(LayerArtist):
 
     def _update_presentation(self, force=False, **kwargs):
         """ """
+        #print(f"Entering _update_presentation with {force=} at time {time()}")
+
         if self._removed:
             return
 
         changed = set() if force else self.pop_changed_properties()
+        #print(f"_update_presentation has {changed=} at time {time()}")
 
-        if (not changed and not force): 
+        #print(changed)
+        if (not changed and not force) or len(changed) > 6: 
             return  # Bail quickly
 
         if self._viewer_state.lon_att is None or self._viewer_state.lat_att is None or self.state.data_att is None:
             self.clear()
             return
 
-        if self.visible is False:
-            self.clear()
+        #if self.visible is False:
+        #    self.clear()
 
         if force or any(x in changed for x in ["data_att"]):
-            self.vmin = np.nanpercentile(self.layer[self.state.data_att], 1)
-            self.vmax = np.nanpercentile(self.layer[self.state.data_att], 99)
+            self.vmin = 0#self.layer.compute_statistic('percentile', self.state.data_att, percentile=1, random_subset=10000)
+            self.vmax = 1#self.layer.compute_statistic('percentile', self.state.data_att, percentile=99, random_subset=10000)
 
-        if force or any(x in changed for x in ["lon_att", "lat_att", "t"]):
 
+        #print(f"Preliminaries done at time {time()}")
+        if not isinstance(self.layer, Data): # Bail on subsets for now
+            return
+        if force or any(x in changed for x in ["lon_att", "lat_att", "data_att"]):
             try:
-                lon = self.layer[self._viewer_state.lon_att]
+                lon = self._sliced_data.get_data(self._viewer_state.lon_att)# self.layer.get_data(self._viewer_state.lon_att)[self.state.t,:,:]#[self.state.t]
             except IncompatibleAttribute:
                 self.disable_invalid_attributes(self._viewer_state.lon_att)
                 return
 
             try:
-                lat = self.layer[self._viewer_state.lat_att]
+                lat = self._sliced_data.get_data(self._viewer_state.lat_att) #self.layer.get_data(self._viewer_state.lat_att)[self.state.t,:,:]
             except IncompatibleAttribute:
-                self.disable_invalid_attributes(self._viewer_state.lat_att)
+                self.disable_invalid_attributes(self._viewer_state.lat_att)#[self.state.t]
                 return
 
             if not (len(lon) and len(lat)):
                 return
+            #print(f"Lat/lon grabbed at time {time()}")
 
-            # Check if this is a data or a subset layer
             if isinstance(self.layer, Data):
 
-                bounds = [(lat.min(), lon.min()), (lat.max(), lon.max())]
+                self.bounds = [(lat.min(), lon.min()), (lat.max(), lon.max())]
+                #print(f"Bounds ({self.bounds=}) calculated time {time()}")
 
                 def normalize_over_full_data(array, *args, **kwargs):
                     array = (array - self.vmin) / (self.vmax - self.vmin)
                     return array
-                data = self.layer[self.state.data_att][self.state.t]
-                imgurl = make_imageoverlay(data, bounds, normalize_over_full_data,
-                                           proj_refinement=1, colormap='coolwarm')
+                self.norm_func = normalize_over_full_data
+
+        if force or any(x in changed for x in ["lon_att", "lat_att", "t"]):
+            if isinstance(self.layer, Data):
+                self._sliced_data.indices = (self.state.t, None, None)
+            # Check if this is a data or a subset layer
+                data = self._sliced_data.get_data(self.state.data_att)
+                #print(f"data loaded {time()}")
+                #print(f"Data shape: {data.shape}")
+
+                imgurl = make_imageoverlay(data, self.bounds, self.norm_func,
+                                            proj_refinement=1, colormap='coolwarm')
+                #print(f"imgrul made {time()}")
+
                 self.image_overlay_layer.url = imgurl
-                self.image_overlay_layer.bounds = bounds
+                self.image_overlay_layer.bounds = self.bounds
+                #print(f"layer updated {time()}")
             else:
                 pass
-            
         self.enable()
 
 
