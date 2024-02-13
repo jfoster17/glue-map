@@ -10,9 +10,10 @@ from glue_jupyter.view import IPyWidgetView
 from glue_jupyter.widgets import Color, Size
 from ipywidgets import VBox
 
-from .layer_artist import MapPointsLayerArtist, MapRegionLayerArtist
+from .layer_artist import MapPointsLayerArtist, MapRegionLayerArtist, MapXarrayLayerArtist
 from .state import MapViewerState
 from .state_widgets.viewer_map import MapViewerStateWidget
+from .state_widgets.layer_map import MapLayerStateWidget
 from .utils import get_geom_type
 
 __all__ = ["IPyLeafletMapViewer"]
@@ -116,6 +117,18 @@ class RegionLayerStateWidget(VBox):
         super().__init__([self.color_widgets, self.widget_alpha])
 
 
+class XarrayLayerStateWidget(VBox):
+    def __init__(self, layer_state):
+        self.state = layer_state
+        self.color_widgets = Color(state=self.state)
+        self.widget_alpha = ipywidgets.FloatSlider(
+            description="opacity", min=0, max=1, value=self.state.alpha
+        )
+        link((self.state, "alpha"), (self.widget_alpha, "value"))
+
+        super().__init__([self.color_widgets, self.widget_alpha])
+
+
 class IPyLeafletMapViewer(IPyWidgetView):
     """
     A glue viewer to show an `ipyleaflet` Map viewer with data.
@@ -136,6 +149,8 @@ class IPyLeafletMapViewer(IPyWidgetView):
     _layer_style_widget_cls = {
         MapRegionLayerArtist: RegionLayerStateWidget,  # Do our own RegionLayerStateWidget
         MapPointsLayerArtist: PointsLayerStateWidget,
+        MapXarrayLayerArtist: XarrayLayerStateWidget,
+
     }
 
     tools = ["ipyleaflet:pointselect", "ipyleaflet:rectangleselect"]
@@ -169,6 +184,8 @@ class IPyLeafletMapViewer(IPyWidgetView):
             cls = MapRegionLayerArtist
         elif get_geom_type(layer) == "points":
             cls = MapPointsLayerArtist
+        elif get_geom_type(layer) == "xarray":
+            cls = MapXarrayLayerArtist
         else:
             raise ValueError(
                 f"IPyLeafletMapViewer does not know how to render the data in {layer.label}"
@@ -179,6 +196,7 @@ class IPyLeafletMapViewer(IPyWidgetView):
         return self.get_data_layer_artist(layer=layer, layer_state=layer_state)
 
     def apply_roi(self, roi, override_mode=None):
+        #print("Inside apply_roi")
         self.redraw()
 
         if len(self.layers) == 0:
@@ -189,6 +207,7 @@ class IPyLeafletMapViewer(IPyWidgetView):
             x_att=self.state.lon_att,
             y_att=self.state.lat_att,
         )
+        #print("subset_state:", subset_state)
         self.apply_subset_state(subset_state, override_mode=override_mode)
 
     @property

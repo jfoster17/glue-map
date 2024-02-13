@@ -61,7 +61,7 @@ class PointSelect(IpyLeafletSelectionTool):
         """
         Capture point-select clicks. This is to select regions...
         """
-        print("PointSelect activated...")
+        #print("PointSelect activated...")
 
         def on_click(event, feature, **kwargs):
             # print("On click called...")
@@ -161,7 +161,7 @@ class RectangleSelect(IpyLeafletSelectionTool):
         def map_interaction(**kwargs):
             # print(kwargs)
             if kwargs["type"] == "mousedown":
-                # print(f'mousedown {kwargs["coordinates"]}')
+                print(f'mousedown {kwargs["coordinates"]}')
                 self.start_coords = kwargs["coordinates"]
                 self.rect = Rectangle(
                     bounds=(self.start_coords, kwargs["coordinates"]),
@@ -172,7 +172,7 @@ class RectangleSelect(IpyLeafletSelectionTool):
                 )
                 self.viewer.map.add_layer(self.rect)
             elif kwargs["type"] == "mouseup" and self.start_coords:
-                # print(f'mouseup {kwargs["coordinates"]}')
+                #print(f'mouseup {kwargs["coordinates"]}')
                 self.end_coords = kwargs["coordinates"]
 
                 xmin = self.end_coords[1]
@@ -181,7 +181,9 @@ class RectangleSelect(IpyLeafletSelectionTool):
                 ymax = self.start_coords[0]
                 xmin, xmax = sorted((xmin, xmax))
                 ymin, ymax = sorted((ymin, ymax))
+                #print(f"{xmin=}, {xmax=}, {ymin=}, {ymax=}")
                 roi = RectangularROI(xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax)
+                #print("Applying ROI...")
                 self.viewer.apply_roi(roi)
 
                 self.start_coords = None

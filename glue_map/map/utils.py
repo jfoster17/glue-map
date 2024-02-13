@@ -1,12 +1,24 @@
 from glue.core import Data
+from glue_map.data import XarrayData
 
+def sim(base_url):
+    return('http://localhost:8888')
 
 def get_geom_type(layer):
     """
     Get the type of map-like data in layer
 
     """
-    if layer is not None and layer.ndim == 1:
+    if layer is None:
+        return None
+    elif layer.ndim > 1:
+        if isinstance(layer, XarrayData):
+            layer_type = "xarray"
+        elif isinstance(layer.data, XarrayData):
+            #print("layer.data is XarrayData")
+            layer_type = "xarray"
+        return layer_type
+    elif layer.ndim == 1:
         if isinstance(layer, Data):
             try:
                 geom_type = layer.geometry.geom_type
