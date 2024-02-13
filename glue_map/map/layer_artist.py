@@ -4,21 +4,31 @@ import random
 import ipyleaflet
 import numpy as np
 from glue.core.exceptions import IncompatibleAttribute
+from glue.core.data import Data
 from glue.utils import color2hex, ensure_numerical
 from glue.viewers.common.layer_artist import LayerArtist
 from glue_jupyter.link import link
-from ipyleaflet.leaflet import CircleMarker, GeoJSON, Heatmap, LayerGroup
+from ipyleaflet.leaflet import CircleMarker, GeoJSON, Heatmap, LayerGroup, ImageOverlay
+import matplotlib.pyplot as plt
+import PIL
+import PIL.Image
+from io import BytesIO
+from base64 import b64encode
+import rasterio
+from rasterio import Affine as A
+from rasterio.warp import reproject, Resampling
+from time import time
+from glue.core.data_derived import IndexedData
 
 from ..data import GeoPandasTranslator
-from .state import MapPointsLayerState, MapRegionLayerState
-
+from .state import MapPointsLayerState, MapRegionLayerState, MapXarrayLayerState
 # from glue.logger import logger
 
 
 # my_logger = logging.getLogger("")
 # my_logger.setLevel(logging.WARNING)
 
-__all__ = ["MapRegionLayerArtist", "MapPointsLayerArtist"]
+__all__ = ["MapRegionLayerArtist", "MapPointsLayerArtist","MapXarrayLayerArtist"]
 
 
 RESET_TABLE_PROPERTIES = (
@@ -120,7 +130,6 @@ class MapPointsLayerArtist(LayerArtist):
             layer_group of circle markers: which can do all the cmap and size stuff
 
         """
-
         # print(f"Updating layer_artist for points in {self.layer.label} with {force=}")
 
         if self._removed:
@@ -278,7 +287,7 @@ class MapPointsLayerArtist(LayerArtist):
                     return
 
                 if self.state.display_mode == "Individual Points":
-                    print("Calculating sizes")
+                    #print("Calculating sizes")
                     if "size_vmin" not in changed and "size_att" in changed:
                         self.state.size_vmin = min(
                             size_values
@@ -424,6 +433,7 @@ class MapRegionLayerArtist(LayerArtist):
 
     def _update_presentation(self, force=False, **kwargs):
         """ """
+        
         # my_logger.warning(f"*** MapRegionLayerArtist._update_presentation ***")
 
         # my_logger.warning(f"updating Map for regions in {self.layer.label} with {force=}")
@@ -433,7 +443,7 @@ class MapRegionLayerArtist(LayerArtist):
 
         changed = set() if force else self.pop_changed_properties()
         # my_logger.warning(f"These variables have changed: {changed}")
-
+        #print(f"{changed=}")
         if (
             not changed and not force
         ):  # or len(changed) > 6: #For some reason the first time we change anything, everything get changed.
@@ -561,3 +571,205 @@ class MapRegionLayerArtist(LayerArtist):
                 }
 
         self.enable()
+
+
+class MapXarrayLayerArtist(LayerArtist):
+    """
+    Display a regularly gridded Xarray dataset on the map as an ImageOverlay
+    """
+    _layer_state_cls = MapXarrayLayerState
+    _removed = False
+
+    def __init__(self, viewer_state, map=None, layer_state=None, layer=None):
+        super().__init__(
+            viewer_state, layer_state=layer_state, layer=layer
+        )
+        self.layer = layer
+        self.layer_id = "{0:08x}".format(random.getrandbits(32))
+        self.map = map
+        self.zorder = self.state.zorder
+        self.visible = self.state.visible
+        self.image_overlay_layer = ImageOverlay()
+        self.vmin = 0
+        self.vmax = 1
+        self.map.add(self.image_overlay_layer)
+        self.bounds = [(0, 0), (0, 0)]
+        if isinstance(self.layer, Data):
+            self._sliced_data = IndexedData(self.layer, indices=(self.state.t, None, None))
+        else:
+            self._sliced_data = None
+        #  In theory we want something like this to link the opacity of the layer to the alpha of the state
+        #  dlink((self.state, 'alpha'), (self.image_overlay_layer, 'opacity'), lambda x: [x])
+
+    def remove(self):
+        self._removed = True
+        self.clear()
+
+    def redraw(self):
+        pass
+
+    def update(self):
+        if (
+            self.map is None
+            or self.state.layer is None
+            or self._viewer_state.lat_att is None
+            or self._viewer_state.lon_att is None
+        ):
+            return
+        self._update_presentation(force=True)
+
+    def _update_presentation(self, force=False, **kwargs):
+        """ """
+        #print(f"Entering _update_presentation with {force=} at time {time()}")
+
+        if self._removed:
+            return
+
+        changed = set() if force else self.pop_changed_properties()
+        #print(f"_update_presentation has {changed=} at time {time()}")
+
+        #print(changed)
+        if (not changed and not force) or len(changed) > 6: 
+            return  # Bail quickly
+
+        if self._viewer_state.lon_att is None or self._viewer_state.lat_att is None or self.state.data_att is None:
+            self.clear()
+            return
+
+        #if self.visible is False:
+        #    self.clear()
+
+        if force or any(x in changed for x in ["data_att"]):
+            self.vmin = 0#self.layer.compute_statistic('percentile', self.state.data_att, percentile=1, random_subset=10000)
+            self.vmax = 1#self.layer.compute_statistic('percentile', self.state.data_att, percentile=99, random_subset=10000)
+
+
+        #print(f"Preliminaries done at time {time()}")
+        if not isinstance(self.layer, Data): # Bail on subsets for now
+            return
+        if force or any(x in changed for x in ["lon_att", "lat_att", "data_att"]):
+            try:
+                lon = self._sliced_data.get_data(self._viewer_state.lon_att)
+            except IncompatibleAttribute:
+                self.disable_invalid_attributes(self._viewer_state.lon_att)
+                return
+
+            try:
+                lat = self._sliced_data.get_data(self._viewer_state.lat_att)
+            except IncompatibleAttribute:
+                self.disable_invalid_attributes(self._viewer_state.lat_att)
+                return
+
+            if not (len(lon) and len(lat)):
+                return
+            #print(f"Lat/lon grabbed at time {time()}")
+
+            if isinstance(self.layer, Data):
+
+                self.bounds = [(lat.min(), lon.min()), (lat.max(), lon.max())]
+                #print(f"Bounds ({self.bounds=}) calculated time {time()}")
+
+                def normalize_over_full_data(array, *args, **kwargs):
+                    array = (array - self.vmin) / (self.vmax - self.vmin)
+                    return array
+                self.norm_func = normalize_over_full_data
+
+        if force or any(x in changed for x in ["lon_att", "lat_att", "t"]):
+            if isinstance(self.layer, Data):
+                self._sliced_data.indices = (self.state.t, None, None)
+            # Check if this is a data or a subset layer
+                data = self._sliced_data.get_data(self.state.data_att)
+                #print(f"data loaded {time()}")
+                #print(f"Data shape: {data.shape}")
+
+                imgurl = make_imageoverlay(data, self.bounds, self.norm_func,
+                                            proj_refinement=1, colormap='coolwarm')
+                #print(f"imgrul made {time()}")
+
+                self.image_overlay_layer.url = imgurl
+                self.image_overlay_layer.bounds = self.bounds
+                #print(f"layer updated {time()}")
+            else:
+                pass
+        self.enable()
+
+
+def project_array(array, bounds, refinement=2):
+    """
+    Project a numpy array defined in WGS84 coordinates to Mercator Web coordinate system
+    
+    ipyleaflets use the Mercator Web coordinate system.
+    :arg array: Data in 2D numpy array
+    :arg bounds: Image latitude, longitude bounds, [(lat_min, lon_min), (lat_max, lon_max)]
+    :kwarg int refinement: Scaling factor for output array resolution.
+        refinement=1 implies that output array has the same size as the input.
+    """
+    with rasterio.Env():
+
+        (lat_min, lon_min), (lat_max, lon_max) = bounds
+        nlat, nlon = array.shape
+        dlat = (lat_max - lat_min)/nlat
+        dlon = (lon_max - lon_min)/nlon
+        src_transform = A.translation(lon_min, lat_min) * A.scale(dlon, dlat)
+        src_crs = {'init': 'EPSG:4326'}
+
+        nlat2 = nlat*refinement
+        nlon2 = nlon*refinement
+        dst_shape = (nlat2, nlon2)
+        dst_crs = {'init': 'EPSG:3857'}
+        bbox = [lon_min, lat_min, lon_max, lat_max]
+        dst_transform, width, height = rasterio.warp.calculate_default_transform(
+            src_crs, dst_crs, nlon, nlat, *bbox, dst_width=nlon2, dst_height=nlat2)
+        dst_shape = height, width
+        destination = np.zeros(dst_shape)
+
+        reproject(
+            array,
+            destination,
+            src_transform=src_transform,
+            src_crs=src_crs,
+            dst_transform=dst_transform,
+            dst_crs=dst_crs,
+            resampling=Resampling.nearest)
+        return destination
+
+
+def make_imageoverlay(array, bounds, norm_func, mask=None, colormap='Blues', proj_refinement=4):
+    """
+    Make ImageOverlay from numpy array.
+    
+    
+    :arg array: Data in 2D numpy array.
+    :arg bounds: Image latitude, longitude bounds, [(lat_min, lon_min), (lat_max, lon_max)]
+    :kwarg mask: Optional mask to mark missing data in the array. If mask=None and array is
+        a masked array, its mask is used instead.
+    :kwarg colormap: matplotlib colormap
+    :kwarg int refinement: Scaling factor for output array resolution.
+        refinement=1 implies that output array has the same size as the input.
+    """
+    if mask is None and hasattr(array, 'mask'):
+        mask = array.mask
+    # project to Mercator Web coordinates
+    array_proj = project_array(array, bounds, refinement=proj_refinement)
+    cmap = plt.get_cmap(colormap)
+    array_mapped = cmap(norm_func(array_proj))
+    # convert to 8 bit int
+    array_int = np.uint8(array_mapped*255)
+    # make an image
+    im = PIL.Image.new('RGBA', array_proj.shape[::-1], color=None)
+    im_data = PIL.Image.fromarray(array_int)
+    im_mask = None
+    if mask is not None:
+        assert mask.shape == array.shape, 'array and mask shapes must be identical'
+        mask = project_array(mask.astype(float), bounds, refinement=proj_refinement)
+        # NOTE image mask marks non-masked pixels
+        mask_int = np.uint8(255*(1 - mask).astype(float))
+        im_mask = PIL.Image.fromarray(mask_int, mode='L')
+    im.paste(im_data, mask=im_mask)
+    # store image in memory
+    f = BytesIO()
+    im.save(f, 'png')
+    data = b64encode(f.getvalue())
+    data = data.decode('ascii')
+    imgurl = 'data:image/png;base64,' + data
+    return imgurl
