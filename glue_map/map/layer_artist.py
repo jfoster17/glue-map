@@ -649,15 +649,15 @@ class MapXarrayLayerArtist(LayerArtist):
             return
         if force or any(x in changed for x in ["lon_att", "lat_att", "data_att"]):
             try:
-                lon = self._sliced_data.get_data(self._viewer_state.lon_att)# self.layer.get_data(self._viewer_state.lon_att)[self.state.t,:,:]#[self.state.t]
+                lon = self._sliced_data.get_data(self._viewer_state.lon_att)
             except IncompatibleAttribute:
                 self.disable_invalid_attributes(self._viewer_state.lon_att)
                 return
 
             try:
-                lat = self._sliced_data.get_data(self._viewer_state.lat_att) #self.layer.get_data(self._viewer_state.lat_att)[self.state.t,:,:]
+                lat = self._sliced_data.get_data(self._viewer_state.lat_att)
             except IncompatibleAttribute:
-                self.disable_invalid_attributes(self._viewer_state.lat_att)#[self.state.t]
+                self.disable_invalid_attributes(self._viewer_state.lat_att)
                 return
 
             if not (len(lon) and len(lat)):

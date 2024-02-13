@@ -22,10 +22,10 @@ def load_tempo_data(directory, quality_flag='high'):
 
     input_data = []
     for input_file in input_files:
-        coords = xr.open_dataset(input_file, engine='h5netcdf')  # Contains no data, does not chunk
-        product = xr.open_dataset(input_file, engine='h5netcdf', chunks={'xtrack': 256}, group='product')
-        geoloc = xr.open_dataset(input_file, engine='h5netcdf', chunks={'xtrack': 256}, group='geolocation')
-        support = xr.open_dataset(input_file, engine='h5netcdf', chunks={'xtrack': 256}, group='support_data')
+        coords = xr.open_dataset(input_file, engine='h5netcdf', chunks='auto')
+        product = xr.open_dataset(input_file, engine='h5netcdf', chunks='auto', group='product')
+        geoloc = xr.open_dataset(input_file, engine='h5netcdf', chunks='auto', group='geolocation')
+        support = xr.open_dataset(input_file, engine='h5netcdf', chunks='auto', group='support_data')
         product = product.assign_coords(coords.coords)
         high_quality = (geoloc['solar_zenith_angle'] < 80) & (product['main_data_quality_flag'] == 0) & (support['eff_cloud_fraction'] < 0.2)
         med_quality = (geoloc['solar_zenith_angle'] < 80) & (product['main_data_quality_flag'] == 0) & (support['eff_cloud_fraction'] < 0.4)
