@@ -1,0 +1,43 @@
+# Sphinx & coverage
+build
+doc/_build
+doc/api
+*.coverage
+*htmlcov*
+
+# Packages/installer info
+doc/.eggs
+*.egg-info
+dist
+
+# Compiled files
+*.pyc
+
+# Other
+.pylintrc
+*.ropeproject
+*.__junk*
+*.orig
+*~
+.cache
+
+# Mac OSX
+.DS_Store
+
+# PyCharm
+.idea
+
+# Eclipse editor project files
+.project
+.pydevproject
+.settings
+
+.eggs
+.hypothesis
+.pytest_cache
+.tox
+.vscode
+# vscode plugin
+.history
+
+results
