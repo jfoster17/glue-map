@@ -24,4 +24,6 @@ def setup():
     colormaps.add("red_to_green", ListedColormap(red_to_green, name="red_to_green"))
     colormaps.add("green_to_red", ListedColormap(green_to_red, name="green_to_red"))
 
-    # colormaps.add('Greys 2', cm.Greys_r)
+    from .timeseries.viewer import TimeSeriesViewer
+    viewer_registry.add("timeseries", TimeSeriesViewer)
+
