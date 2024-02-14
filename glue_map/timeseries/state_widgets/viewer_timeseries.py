@@ -1,7 +1,7 @@
 from glue_jupyter.common.state_widgets.viewer_profile import ProfileViewerStateWidget
 
-__all__ = ['TimeSeriesViewererStateWidget']
+__all__ = ['TimeSeriesViewerStateWidget']
 
 
-class TimeSeriesViewererStateWidget(ProfileViewerStateWidget):
+class TimeSeriesViewerStateWidget(ProfileViewerStateWidget):
     pass
