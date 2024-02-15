@@ -14,13 +14,15 @@ warnings.filterwarnings('ignore') # setting ignore as a parameter
 __all__ = ["InvalidGeoData", "GeoRegionData", "GeoPandasTranslator"]
 
 
-def load_tempo_data(directory, quality_flag='high'):
+def load_tempo_data(directory, quality_flag='high', sample=False, time_to_int=False):
     """
     Read all the TEMPO datafiles from a given directory into a glue data object
     """
     input_files = glob.glob(f"{directory}/TEMPO_NO2_L3_V01_*_S*.nc")
-
+    if sample:
+        input_files = input_files[0:10]
     input_data = []
+    
     for input_file in input_files:
         coords = xr.open_dataset(input_file, engine='h5netcdf', chunks='auto')
         product = xr.open_dataset(input_file, engine='h5netcdf', chunks='auto', group='product')
@@ -44,7 +46,8 @@ def load_tempo_data(directory, quality_flag='high'):
     new_data = new_data.rio.write_nodata(np.nan, encoded=True)
     no2_norm = 10**16
     new_data.data = new_data.data/no2_norm
-    new_data.coords['time'] = range(len(new_data.coords['time']))  # Somehow req for glue
+    if time_to_int:
+        new_data.coords['time'] = range(len(new_data.coords['time']))  # glue needs pixel coordinates to be integers. FIXME! 
     return XarrayData(new_data, label='tempo_no2', coords=XarrayCoordinates(new_data, n_dim=3))
 
 
@@ -60,7 +63,7 @@ class XarrayCoordinates(Coordinates):
     Does not yet handle units.
     """
     def __init__(self, xarr, **kwargs):
-        self.wc = [np.asarray(w) for w in xarr.indexes.values()]
+        self.wc = [np.asarray(w).astype(float, casting='unsafe') for w in xarr.indexes.values()]
         self.pc = [np.arange(len(wc)) for wc in self.wc]
         self.coord_keys = xarr.coords.keys()
         #self.units = []
@@ -75,7 +78,6 @@ class XarrayCoordinates(Coordinates):
     def pixel_to_world_values(self, *args):
         world_values = tuple([np.interp(arg, self.pc[i], self.wc[i]) for i,arg in enumerate(args)])
         return world_values
-
     
     def world_to_pixel_values(self, *args):
         pixel_values = tuple([np.interp(arg, self.wc[i], self.pc[i]) for i, arge in enumerate(args)])
