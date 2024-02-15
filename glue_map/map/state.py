@@ -308,7 +308,7 @@ class MapXarrayLayerState(LayerState):
     size = CallbackProperty()
     alpha = CallbackProperty()
 
-    t = CallbackProperty(7)
+    t = CallbackProperty(0)
     data_att = SelectionCallbackProperty()
 
     color_mode = SelectionCallbackProperty(default_index=0)
