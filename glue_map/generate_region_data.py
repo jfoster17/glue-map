@@ -10,7 +10,7 @@ def generate_region_data():
     city_mapping = {'NYC': 289, 'LA': 17, 'CHI': 287, 'HOU': 238, 'DC': 292, 'BOS': 86}
     city_data = {'NYC': None, 'LA': None, 'CHI': None, 'HOU': None, 'DC': None, 'BOS': None}
 
-    tempo = load_tempo_data("/Volumes/SanDisk/publicrelease", time_to_int=False)
+    tempo = load_tempo_data("publicrelease", time_to_int=False)
 
     bbox = (-155, 17, -24.5, 64)
     urban_areas = gpd.read_file('boundaries/ne_50m_urban_areas/', bbox=bbox)
