@@ -80,10 +80,14 @@ class MapViewerState(ViewerState):
 
 
 class MapRegionLayerState(LayerState):
+    """ A state class for displaying regions on a map."""
+
     layer = CallbackProperty()
     color = CallbackProperty()
     size = CallbackProperty()
     alpha = CallbackProperty()
+
+    fill = CallbackProperty(False, docstring="Show the region filled")
 
     color_mode = SelectionCallbackProperty(default_index=0)
     cmap_att = SelectionCallbackProperty()

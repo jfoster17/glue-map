@@ -382,20 +382,29 @@ class MapRegionLayerArtist(LayerArtist):
         self.map = map
         self.zorder = self.state.zorder
         self.visible = self.state.visible
-        self.border_weight = 0.5  # This could be user-adjustable
+        self.border_weight = 1.0  # This could be user-adjustable
 
         self._regions = self._fake_geo_json
+
+        if self.state.fill is not None:
+            if self.state.fill is False:
+                self.fillOpacity = 0
+            else:
+                self.fillOpacity = self.state.alpha
+        else:
+            self.fillOpacity = self.state.alpha
+
         self.map_layer = GeoJSON(
             data=self._regions,
             style={
                 "fillColor": self.state.color,
-                "fillOpacity": self.state.alpha,
+                "fillOpacity": self.fillOpacity,
                 "opacity": self.state.alpha,
                 "color": self.state.color,
                 "weight": self.border_weight,
             },
             hover_style={
-                "fillOpacity": self.state.alpha + 0.2,
+                "fillOpacity": self.fillOpacity + 0.2,
                 "opacity": self.state.alpha + 0.2,
             },
         )
@@ -560,13 +569,22 @@ class MapRegionLayerArtist(LayerArtist):
         #        self.map_layer.style = {'color':self.state.color, 'fillColor':self.state.color}
 
         if force or "alpha" in changed:
+            if self.state.fill is not None:
+                if self.state.fill is False:
+                    self.fillOpacity = 0
+                else:
+                    self.fillOpacity = self.state.alpha
+            else:
+                self.fillOpacity = self.state.alpha
+
+
             if self.state.alpha is not None:
                 self.map_layer.style = {
-                    "fillOpacity": self.state.alpha,
+                    "fillOpacity": self.fillOpacity,
                     "opacity": self.state.alpha,
                 }
                 self.map_layer.hover_style = {
-                    "fillOpacity": self.state.alpha + 0.2,
+                    "fillOpacity": self.fillOpacity + 0.2,
                     "opacity": self.state.alpha + 0.2,
                 }
 
