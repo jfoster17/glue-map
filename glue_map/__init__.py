@@ -27,3 +27,6 @@ def setup():
     from .timeseries.viewer import TimeSeriesViewer
     viewer_registry.add("timeseries", TimeSeriesViewer)
 
+
+    from .traces.viewer import TracesViewer
+    viewer_registry.add("traces", TracesViewer)
