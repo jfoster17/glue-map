@@ -19,3 +19,6 @@ class TracesViewer(BqplotScatterView):
     _layer_style_widget_cls = TracesLayerStateWidget
 
     tools = ['bqplot:home', 'bqplot:panzoom', 'bqplot:panzoom_x', 'bqplot:panzoom_y']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
