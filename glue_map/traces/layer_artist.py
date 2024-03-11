@@ -10,11 +10,18 @@ from bqplot_image_gl import LinesGL
 import bqplot
 from glue_jupyter.utils import float_or_none
 from glue_jupyter.utils import colormap_to_hexlist
-from glue.viewers.scatter.layer_artist import CMAP_PROPERTIES, MARKER_PROPERTIES
+from glue.viewers.scatter.layer_artist import CMAP_PROPERTIES, MARKER_PROPERTIES, DATA_PROPERTIES
+from glue_jupyter.bqplot.compatibility import ScatterGL, LinesGL
+from glue_jupyter.bqplot.scatter.scatter_density_mark import GenericDensityMark
+
 
 __all__ = ['TracesLayerArtist']
 
 USE_GL = True
+# By adding group_att to both VISUAL_PROPERTIES and DATA_PROPERTIES, we automatically run
+# both the _update_visual_attributes and _update_data methods when group_att changes
+CMAP_PROPERTIES = CMAP_PROPERTIES.add('group_att')
+DATA_PROPERTIES = DATA_PROPERTIES.add('group_att')
 
 
 class TracesLayerArtist(BqplotScatterLayerArtist):
@@ -25,14 +32,16 @@ class TracesLayerArtist(BqplotScatterLayerArtist):
 
         super().__init__(view, viewer_state, layer_state=layer_state, layer=layer)
 
-        # A scatter layer artist shows a single line connecting all the points
-        # This is set in the super().__init__ and we want to blank it out
-        #self.line_mark = None
-        #self.line_mark.colors = []
-        #self.line_mark.opacities = []
+        for mark in self.view.figure.marks:
+            if isinstance(mark, ScatterGL):
+                self.view.figure.marks.remove(mark)
+            elif isinstance(mark, bqplot.Lines):
+                self.view.figure.marks.remove(mark)
+            elif isinstance(mark, LinesGL):
+                self.view.figure.marks.remove(mark)
+            elif isinstance(mark, GenericDensityMark):
+                self.view.figure.marks.remove(mark)
 
-        # Now we set up a list of line marks, one for each trace. We don't know
-        # how many traces there will be yet
         self.lines_cls = LinesGL if USE_GL else bqplot.Lines
         
         self.line_marks = [self.lines_cls(scales=self.view.scales, x=[0.], y=[0.])]
@@ -40,7 +49,8 @@ class TracesLayerArtist(BqplotScatterLayerArtist):
             line_mark.colors = []
             line_mark.opacities = []
 
-        self.view.figure.marks = list(self.view.figure.marks) + [self.scatter_mark] + self.line_marks
+        self.view.figure.marks = list(self.view.figure.marks) + self.line_marks
+
 
     def _update_data(self):
 
