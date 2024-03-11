@@ -69,14 +69,17 @@ class TracesLayerArtist(BqplotScatterLayerArtist):
         self.scatter_mark = ScatterGL(scales=self.scales_scatter, x=[0, 1], y=[0, 1])
 
         # lines
-        lines_cls = LinesGL if USE_GL else bqplot.Lines
+        self.lines_cls = LinesGL if USE_GL else bqplot.Lines
         
-        self.line_mark = lines_cls(scales=self.view.scales, x=[0.], y=[[0.], [0.]])
-        self.line_mark.colors = [color2hex(self.state.color)]
-        self.line_mark.opacities = [self.state.alpha]
+        self.line_marks = [self.lines_cls(scales=self.view.scales, x=[0.], y=[0.])]
+        for line_mark in self.line_marks:
+            line_mark.colors = [color2hex(self.state.color)]
+            line_mark.opacities = [self.state.alpha]
+        #self.line_mark.colors = [color2hex(self.state.color)]
+        #self.line_mark.opacities = [self.state.alpha]
         self.density_mark = None # We need these defined for now, but ideally we remove entirely
         self.vector_mark = None
-        self.view.figure.marks = list(self.view.figure.marks) + [self.scatter_mark, self.line_mark]
+        self.view.figure.marks = list(self.view.figure.marks) + [self.scatter_mark] + self.line_marks
         
 
     def _update_data(self):
@@ -127,18 +130,39 @@ class TracesLayerArtist(BqplotScatterLayerArtist):
             # This could cause flickering. Can be just initialize this empty and then create this
             # list with the data inside of it?
             #import pdb; pdb.set_trace()
-            #self.view.figure.marks[:].remove(self.line_marks)
-            #self.line_marks = [self.lines_cls(scales=self.view.scales, x=[0.], y=[0.])]*self.state.num_groups
-            #self.view.figure.marks = list(self.view.figure.marks) + self.line_marks
+            marks = self.view.figure.marks[:]
+            for line_mark in self.line_marks:
+                marks.remove(line_mark)
+            self.line_marks = []#*self.state.num_groups
+            #for line_mark in self.line_marks:
+            #    line_mark.colors = [color2hex(self.state.color)]
+            #    line_mark.opacities = [self.state.alpha]
+            #self.view.figure.marks = marks + self.line_marks
 
             #print(self.view.figure.marks)
             #line_ys = []
-            dfs = []
-            for _, group in dfg:
+
+            linestyles = ['solid', 'dashed', 'dotted', 'dash_dotted'] * 10
+            markers = ['circle', 'triangle-down', 'triangle-up', 'square', 'diamond', '+', 'cross'] * 10
+
+            lines_data = []
+            for i,(name, group) in enumerate(dfg):
                 y_att = self._viewer_state.y_att.label
                 x_att = self._viewer_state.x_att.label
 
-                dfs.append(group.groupby([x_att])[y_att].mean())
+                data = group.groupby([x_att])[y_att].mean()
+                #lines_data.append(data)
+                x_data = data.index.values
+                y_data = data.values
+                line_mark = self.lines_cls(scales=self.view.scales, x=x_data, y=y_data, display_legend=True, labels=[name[0]])
+                line_mark.colors = [color2hex(self.state.color)]
+                line_mark.opacities = [self.state.alpha]
+                line_mark.line_style = linestyles[i]
+                line_mark.marker = markers[i]
+                self.line_marks.append(line_mark)
+                
+            self.view.figure.marks = marks + self.line_marks
+                #dfs.append(group.groupby([x_att])[y_att].mean())
                 # If x_att or y_att is a categorical this will break, but it is not simple
                 # because we need the specific category-> number mapping for the original
                 # dataset, not just the subset. We should save and use it earlier.
@@ -146,11 +170,14 @@ class TracesLayerArtist(BqplotScatterLayerArtist):
                 #line_x = ensure_numerical(group[x_att].values.astype(np.float32).ravel())
                 #line_ys.append(ensure_numerical(group[y_att].values.astype(np.float32).ravel()))
             # An expensive way to pad time series with NaNs
-            full_arr = pd.concat(dfs, axis=1).fillna(0)
-
-            self.line_mark.x = full_arr.index.values
+            #full_arr = pd.concat(dfs, axis=1).fillna(0)
             #import pdb; pdb.set_trace()
-            self.line_mark.y = full_arr.values.T
+            #for line_mark, line_data in zip(self.line_marks, lines_data):
+            #    line_mark.x = line_data.index.values
+            #    line_mark.y = line_data.values
+            #self.line_mark.x = full_arr.index.values
+            #import pdb; pdb.set_trace()
+            #self.line_mark.y = full_arr.values.T
 
     #else:
         #    pass
@@ -203,14 +230,18 @@ class TracesLayerArtist(BqplotScatterLayerArtist):
 
         #if self.state.line_visible:
         if force or "color" in changed:
-            #for line_mark in self.line_marks:
+            for line_mark in self.line_marks:
+                line_mark.colors = [color2hex(self.state.color)]
                 # Probably want to change either color of linestyle based on the group
-            self.line_mark.colors = [color2hex(self.state.color)]*self.state.num_groups
+            #self.line_mark.colors = [color2hex(self.state.color)]*self.state.num_groups
         if force or "linewidth" in changed:
-            pass
+            for line_mark in self.line_marks:
+                line_mark.stroke_width = self.state.linewidth
             #self.line_mark.stroke_width = self.state.linewidth #[self.state.linewidth]*self.state.num_groups
-        if force or "linestyle" in changed:
-            pass
+        #if force or "linestyle" in changed:
+        #    for line_mark in self.line_marks:
+        #        line_mark.line_style = self.state.linestyle
+            #pass
             #line_styles = []
             #for i in range(self.state.num_groups):
             #    line_styles.append(linestyles[i])
@@ -223,15 +254,19 @@ class TracesLayerArtist(BqplotScatterLayerArtist):
 
             if force or "alpha" in changed:
                 mark.opacities = [self.state.alpha]
-
-        #for mark in [self.line_mark]:
-            #if mark is None:
-            #    continue
-        if force or "alpha" in changed:
-            self.line_mark.opacities = [self.state.alpha]*self.state.num_groups
+        for mark in [self.line_marks]:
+            if mark is None:
+                continue
+            if force or "alpha" in changed:
+                for line_mark in self.line_marks:
+                    line_mark.opacities = [self.state.alpha]
+            #self.line_mark.opacities = [self.state.alpha]*self.state.num_groups
 
         if force or "visible" in changed:
             self.scatter_mark.visible = self.state.visible and self.state.markers_visible
+            for line_mark in self.line_marks:
+                line_mark.visible = self.state.visible and self.state.line_visible
+
             #TODO: FIX THIS!!
             #for line_mark in self.line_marks:
             #    line_mark.visible = self.state.visible and self.state.line_visible
@@ -239,7 +274,7 @@ class TracesLayerArtist(BqplotScatterLayerArtist):
     def _update_scatter(self, force=False, **kwargs):
 
         if (self.scatter_mark is None
-            or self.line_mark is None
+            or self.line_marks is None
             or self._viewer_state.x_att is None
             or self._viewer_state.y_att is None
             or self.state.layer is None
@@ -282,10 +317,10 @@ class TracesLayerArtist(BqplotScatterLayerArtist):
             for item in (layer.scatter_mark, layer.line_mark)
         ]
 
-class TracesLayerSubsetArtist(BqplotScatterLayerArtist):
-
-    _layer_state_cls = TracesLayerState
-
-    def __init__(self, view, viewer_state, layer_state=None, layer=None):
-
-        super().__init__(view, viewer_state, layer_state=layer_state, layer=layer)
+#class TracesLayerSubsetArtist(BqplotScatterLayerArtist):
+#
+#    _layer_state_cls = TracesLayerState
+#        
+#    def __init__(self, view, viewer_state, layer_state=None, layer=None):
+#
+#        super().__init__(view, viewer_state, layer_state=layer_state, layer=layer)
