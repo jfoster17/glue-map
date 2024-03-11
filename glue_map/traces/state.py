@@ -1,5 +1,6 @@
 from glue.viewers.scatter.state import ScatterViewerState, ScatterLayerState
-from glue.viewers.matplotlib.state import (DeferredDrawSelectionCallbackProperty as DDSCProperty)
+from glue.viewers.matplotlib.state import (DeferredDrawSelectionCallbackProperty as DDSCProperty,
+                                           DeferredDrawCallbackProperty as DDCProperty)
 from glue.core.data_combo_helper import ComponentIDComboHelper, ComboHelper
 
 __all__ = ['TracesViewerState', 'TracesLayerState']
@@ -17,12 +18,17 @@ class TracesViewerState(ScatterViewerState):
 
     def __init__(self, **kwargs):
         super().__init__()
+        self.x_att_helper = ComponentIDComboHelper(self, 'x_att', categorical=False)
+        self.y_att_helper = ComponentIDComboHelper(self, 'y_att', categorical=False)
 
 
 class TracesLayerState(ScatterLayerState):
 
     group_att = DDSCProperty(docstring='Multiple data-points will be grouped by this attribute before plotting.', default_index=-1)
     agg_att = DDSCProperty(docstring='Attribute to aggregate over (mean) before plotting')
+
+    markers_visible = DDCProperty(False, docstring="Whether to show markers")
+    line_visible = DDCProperty(True, docstring="Whether to show a line connecting all positions")
 
     def __init__(self, layer=None, viewer_state=None, **kwargs):
         self.group_att_helper = ComponentIDComboHelper(self, 'group_att', categorical=True)

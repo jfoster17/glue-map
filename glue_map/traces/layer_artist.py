@@ -6,22 +6,22 @@ from glue.core.exceptions import IncompatibleAttribute
 from glue.utils import color2hex
 from glue.utils import datetime64_to_mpl, ensure_numerical
 import pandas as pd
-from bqplot_image_gl import LinesGL
 import bqplot
 from glue_jupyter.utils import float_or_none
 from glue_jupyter.utils import colormap_to_hexlist
-from glue.viewers.scatter.layer_artist import CMAP_PROPERTIES, MARKER_PROPERTIES, DATA_PROPERTIES
+from glue.viewers.scatter.layer_artist import CMAP_PROPERTIES, MARKER_PROPERTIES, DATA_PROPERTIES, VISUAL_PROPERTIES
 from glue_jupyter.bqplot.compatibility import ScatterGL, LinesGL
 from glue_jupyter.bqplot.scatter.scatter_density_mark import GenericDensityMark
+from glue.viewers.scatter.state import ScatterLayerState
+from glue.viewers.common.layer_artist import LayerArtist
 
 
 __all__ = ['TracesLayerArtist']
 
-USE_GL = True
+USE_GL = False
 # By adding group_att to both VISUAL_PROPERTIES and DATA_PROPERTIES, we automatically run
-# both the _update_visual_attributes and _update_data methods when group_att changes
-CMAP_PROPERTIES = CMAP_PROPERTIES.add('group_att')
-DATA_PROPERTIES = DATA_PROPERTIES.add('group_att')
+CMAP_PROPERTIES.add('group_att')
+DATA_PROPERTIES.add('group_att')
 
 
 class TracesLayerArtist(BqplotScatterLayerArtist):
@@ -30,27 +30,54 @@ class TracesLayerArtist(BqplotScatterLayerArtist):
 
     def __init__(self, view, viewer_state, layer_state=None, layer=None):
 
-        super().__init__(view, viewer_state, layer_state=layer_state, layer=layer)
+        # Call grandparent init method
+        super(BqplotScatterLayerArtist, self).__init__(viewer_state, layer_state=layer_state, layer=layer)
 
-        for mark in self.view.figure.marks:
-            if isinstance(mark, ScatterGL):
-                self.view.figure.marks.remove(mark)
-            elif isinstance(mark, bqplot.Lines):
-                self.view.figure.marks.remove(mark)
-            elif isinstance(mark, LinesGL):
-                self.view.figure.marks.remove(mark)
-            elif isinstance(mark, GenericDensityMark):
-                self.view.figure.marks.remove(mark)
+        #LayerArtist.__init__(
+        #    view, 
+        #    viewer_state,
+        #    layer_state=layer_state,
+        #    layer=layer,
+        #)
 
-        self.lines_cls = LinesGL if USE_GL else bqplot.Lines
+        # Workaround for the fact that the solid line display choice is shown
+        # as a dashed line.
+        linestyle_display = {'solid': 'solid',
+                             'dashed': '– – – – –',
+                             'dotted': '· · · · · · · ·',
+                             'dashdot': '– · – · – ·'}
+
+        ScatterLayerState.linestyle.set_display_func(self.state, linestyle_display.get)
+
+        # Watch for changes in the viewer state which would require the
+        # layers to be redrawn
+        self._viewer_state.add_global_callback(self._update_scatter)
+        self.state.add_global_callback(self._update_scatter)
+
+        self.state.add_callback("zorder", self._update_zorder)
+
+        self.view = view
+
+        # Scatter points
+
+        self.scale_color_scatter = bqplot.ColorScale()
+        self.scales_scatter = dict(
+            self.view.scales,
+            color=self.scale_color_scatter,
+        )
+
+        self.scatter_mark = ScatterGL(scales=self.scales_scatter, x=[0, 1], y=[0, 1])
+
+        # lines
+        lines_cls = LinesGL if USE_GL else bqplot.Lines
         
-        self.line_marks = [self.lines_cls(scales=self.view.scales, x=[0.], y=[0.])]
-        for line_mark in self.line_marks:
-            line_mark.colors = []
-            line_mark.opacities = []
-
-        self.view.figure.marks = list(self.view.figure.marks) + self.line_marks
-
+        self.line_mark = lines_cls(scales=self.view.scales, x=[0.], y=[[0.], [0.]])
+        self.line_mark.colors = [color2hex(self.state.color)]
+        self.line_mark.opacities = [self.state.alpha]
+        self.density_mark = None # We need these defined for now, but ideally we remove entirely
+        self.vector_mark = None
+        self.view.figure.marks = list(self.view.figure.marks) + [self.scatter_mark, self.line_mark]
+        
 
     def _update_data(self):
 
@@ -86,29 +113,49 @@ class TracesLayerArtist(BqplotScatterLayerArtist):
             self.scatter_mark.x = []
             self.scatter_mark.y = []
 
-        if self.state.line_visible:
+        #if self.state.line_visible:
 
-            if self._viewer_state.group_att is not None:
-                if isinstance(self.layer, Data):
-                    df = self.layer.get_object(pd.DataFrame)
-                else:
-                    #  Get a dataframe for just the subset
-                    df = self.layer.data.get_subset_object(subset_id=self.layer.label, cls=pd.DataFrame)
-                gb = df.groupby([self._viewer_state.group_att])
-                self.state.num_groups = len(gb)
-                # This could cause flickering. Can be just initialize this empty and then create this
-                # list with the data inside of it?
-                self.line_marks = [self.lines_cls(scales=self.view.scales, x=[0.], y=[0.])]*self.state.num_groups
+        if self.state.group_att is not None:
+            if isinstance(self.layer, Data):
+                df = self.layer.get_object(pd.DataFrame)
+            else:
+                #  Get a dataframe for just the subset
+                df = self.layer.data.get_subset_object(subset_id=self.layer.label, cls=pd.DataFrame)
+            dfg = df.groupby([self.state.group_att.label])
+            self.state.num_groups = len(dfg)
+            #print(self.state.num_groups)
+            # This could cause flickering. Can be just initialize this empty and then create this
+            # list with the data inside of it?
+            #import pdb; pdb.set_trace()
+            #self.view.figure.marks[:].remove(self.line_marks)
+            #self.line_marks = [self.lines_cls(scales=self.view.scales, x=[0.], y=[0.])]*self.state.num_groups
+            #self.view.figure.marks = list(self.view.figure.marks) + self.line_marks
 
-                for line, (name, group) in zip(self.line_marks, gb):
-                    y_att = self._viewer_state.y_att.label
-                    x_att = self._viewer_state.x_att.label
+            #print(self.view.figure.marks)
+            #line_ys = []
+            dfs = []
+            for _, group in dfg:
+                y_att = self._viewer_state.y_att.label
+                x_att = self._viewer_state.x_att.label
 
-                    line.x = group[x_att].values.astype(np.float32).ravel()
-                    line.y = group[y_att].values.astype(np.float32).ravel()
-        else:
-            self.line_mark.x = [0.]
-            self.line_mark.y = [0.]
+                dfs.append(group.groupby([x_att])[y_att].mean())
+                # If x_att or y_att is a categorical this will break, but it is not simple
+                # because we need the specific category-> number mapping for the original
+                # dataset, not just the subset. We should save and use it earlier.
+
+                #line_x = ensure_numerical(group[x_att].values.astype(np.float32).ravel())
+                #line_ys.append(ensure_numerical(group[y_att].values.astype(np.float32).ravel()))
+            # An expensive way to pad time series with NaNs
+            full_arr = pd.concat(dfs, axis=1).fillna(0)
+
+            self.line_mark.x = full_arr.index.values
+            #import pdb; pdb.set_trace()
+            self.line_mark.y = full_arr.values.T
+
+    #else:
+        #    pass
+            #self.line_mark.x = [0.]
+            #self.line_mark.y = [0.]
 
     def _update_visual_attributes(self, changed, force=False):
 
@@ -154,17 +201,20 @@ class TracesLayerArtist(BqplotScatterLayerArtist):
         # bqplot only supports these for linestyles
         linestyles = ['solid', 'dashed', 'dotted', 'dash_dotted'] * 10
 
-        if self.state.line_visible:
-            if force or "color" in changed:
-                for line_mark in self.line_marks:
-                    # Probably want to change either color of linestyle based on the group
-                    line_mark.colors = [color2hex(self.state.color)]
-            if force or "linewidth" in changed:
-                for line_mark in self.line_marks:
-                    line_mark.stroke_width = self.state.linewidth
-            if force or "linestyle" in changed:
-                for i, line_mark in enumerate(self.line_marks):
-                    line_mark.line_style = linestyles[i]
+        #if self.state.line_visible:
+        if force or "color" in changed:
+            #for line_mark in self.line_marks:
+                # Probably want to change either color of linestyle based on the group
+            self.line_mark.colors = [color2hex(self.state.color)]*self.state.num_groups
+        if force or "linewidth" in changed:
+            pass
+            #self.line_mark.stroke_width = self.state.linewidth #[self.state.linewidth]*self.state.num_groups
+        if force or "linestyle" in changed:
+            pass
+            #line_styles = []
+            #for i in range(self.state.num_groups):
+            #    line_styles.append(linestyles[i])
+            #self.line_mark.line_style = self.state.linestyle #line_styles
 
         for mark in [self.scatter_mark]:
 
@@ -174,17 +224,64 @@ class TracesLayerArtist(BqplotScatterLayerArtist):
             if force or "alpha" in changed:
                 mark.opacities = [self.state.alpha]
 
-        for mark in self.line_marks:
-            if mark is None:
-                continue
-            if force or "alpha" in changed:
-                mark.opacities = [self.state.alpha]
+        #for mark in [self.line_mark]:
+            #if mark is None:
+            #    continue
+        if force or "alpha" in changed:
+            self.line_mark.opacities = [self.state.alpha]*self.state.num_groups
 
         if force or "visible" in changed:
             self.scatter_mark.visible = self.state.visible and self.state.markers_visible
-            for line_mark in self.line_marks:
-                line_mark.visible = self.state.visible and self.state.line_visible
+            #TODO: FIX THIS!!
+            #for line_mark in self.line_marks:
+            #    line_mark.visible = self.state.visible and self.state.line_visible
     
+    def _update_scatter(self, force=False, **kwargs):
+
+        if (self.scatter_mark is None
+            or self.line_mark is None
+            or self._viewer_state.x_att is None
+            or self._viewer_state.y_att is None
+            or self.state.layer is None
+        ):
+            return
+
+        # NOTE: we need to evaluate this even if force=True so that the cache
+        # of updated properties is up to date after this method has been called.
+        changed = self.pop_changed_properties()
+
+        if force or len(changed & DATA_PROPERTIES) > 0:
+            self._update_data()
+            force = True
+
+        if force or len(changed & VISUAL_PROPERTIES) > 0:
+            self._update_visual_attributes(changed, force=force)
+
+    def remove(self):
+        marks = self.view.figure.marks[:]
+        marks.remove(self.scatter_mark)
+        self.scatter_mark = None
+        marks.remove(self.line_mark)
+        self.line_mark = None
+        self.view.figure.marks = marks
+        return super().remove()
+
+    def clear(self):
+        if self.scatter_mark is not None:
+            self.scatter_mark.x = []
+            self.scatter_mark.y = []
+        if self.line_mark is not None:
+            self.line_mark.x = [0.]
+            self.line_mark.y = [0.]
+
+    def _update_zorder(self, *args):
+        sorted_layers = sorted(self.view.layers, key=lambda layer: layer.state.zorder)
+        self.view.figure.marks = [
+            item
+            for layer in sorted_layers
+            for item in (layer.scatter_mark, layer.line_mark)
+        ]
+
 class TracesLayerSubsetArtist(BqplotScatterLayerArtist):
 
     _layer_state_cls = TracesLayerState
