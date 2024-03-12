@@ -121,9 +121,11 @@ class TracesLayerArtist(BqplotScatterLayerArtist):
         if self.state.group_att is not None:
             if isinstance(self.layer, Data):
                 df = self.layer.get_object(pd.DataFrame)
+                subset_name = ""
             else:
                 #  Get a dataframe for just the subset
-                df = self.layer.data.get_subset_object(subset_id=self.layer.label, cls=pd.DataFrame)
+                subset_name = self.layer.label
+                df = self.layer.data.get_subset_object(subset_id=subset_name, cls=pd.DataFrame)
             dfg = df.groupby([self.state.group_att.label])
             self.state.num_groups = len(dfg)
             #print(self.state.num_groups)
@@ -154,7 +156,8 @@ class TracesLayerArtist(BqplotScatterLayerArtist):
                 #lines_data.append(data)
                 x_data = data.index.values
                 y_data = data.values
-                line_mark = self.lines_cls(scales=self.view.scales, x=x_data, y=y_data, display_legend=True, labels=[name[0]])
+                label = name[0]+" "+subset_name.replace("Metro Area", "")
+                line_mark = self.lines_cls(scales=self.view.scales, x=x_data, y=y_data, display_legend=True, labels=[label])
                 line_mark.colors = [color2hex(self.state.color)]
                 line_mark.opacities = [self.state.alpha]
                 line_mark.line_style = linestyles[i]
