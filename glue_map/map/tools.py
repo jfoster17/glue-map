@@ -68,8 +68,6 @@ class PointSelect(IpyLeafletSelectionTool):
             self.list_of_region_ids = []
             # print(f"{feature=}")
             feature_id = feature["id"]  # This is the name of features in our geodata
-            print(feature_id)
-            print(feature)
             # List of region_ids should start with the current subset (how to get this?)
             #active_subset = self.viewer.toolbar_active_subset.selected
             #self.list_of_region_ids.append(int(feature_id))
