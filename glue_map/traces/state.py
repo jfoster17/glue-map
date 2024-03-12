@@ -1,7 +1,7 @@
 from glue.viewers.scatter.state import ScatterViewerState, ScatterLayerState
 from glue.viewers.matplotlib.state import (DeferredDrawSelectionCallbackProperty as DDSCProperty,
                                            DeferredDrawCallbackProperty as DDCProperty)
-from glue.core.data_combo_helper import ComponentIDComboHelper, ComboHelper
+from glue.core.data_combo_helper import ComponentIDComboHelper
 
 __all__ = ['TracesViewerState', 'TracesLayerState']
 

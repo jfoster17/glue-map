@@ -11,9 +11,7 @@ from glue_jupyter.utils import float_or_none
 from glue_jupyter.utils import colormap_to_hexlist
 from glue.viewers.scatter.layer_artist import CMAP_PROPERTIES, MARKER_PROPERTIES, DATA_PROPERTIES, VISUAL_PROPERTIES
 from glue_jupyter.bqplot.compatibility import ScatterGL, LinesGL
-from glue_jupyter.bqplot.scatter.scatter_density_mark import GenericDensityMark
 from glue.viewers.scatter.state import ScatterLayerState
-from glue.viewers.common.layer_artist import LayerArtist
 
 
 __all__ = ['TracesLayerArtist']
@@ -32,13 +30,6 @@ class TracesLayerArtist(BqplotScatterLayerArtist):
 
         # Call grandparent init method
         super(BqplotScatterLayerArtist, self).__init__(viewer_state, layer_state=layer_state, layer=layer)
-
-        #LayerArtist.__init__(
-        #    view, 
-        #    viewer_state,
-        #    layer_state=layer_state,
-        #    layer=layer,
-        #)
 
         # Workaround for the fact that the solid line display choice is shown
         # as a dashed line.
@@ -80,7 +71,6 @@ class TracesLayerArtist(BqplotScatterLayerArtist):
         self.density_mark = None # We need these defined for now, but ideally we remove entirely
         self.vector_mark = None
         self.view.figure.marks = list(self.view.figure.marks) + [self.scatter_mark] + self.line_marks
-        
 
     def _update_data(self):
 
@@ -165,27 +155,6 @@ class TracesLayerArtist(BqplotScatterLayerArtist):
                 self.line_marks.append(line_mark)
                 
             self.view.figure.marks = marks + self.line_marks
-                #dfs.append(group.groupby([x_att])[y_att].mean())
-                # If x_att or y_att is a categorical this will break, but it is not simple
-                # because we need the specific category-> number mapping for the original
-                # dataset, not just the subset. We should save and use it earlier.
-
-                #line_x = ensure_numerical(group[x_att].values.astype(np.float32).ravel())
-                #line_ys.append(ensure_numerical(group[y_att].values.astype(np.float32).ravel()))
-            # An expensive way to pad time series with NaNs
-            #full_arr = pd.concat(dfs, axis=1).fillna(0)
-            #import pdb; pdb.set_trace()
-            #for line_mark, line_data in zip(self.line_marks, lines_data):
-            #    line_mark.x = line_data.index.values
-            #    line_mark.y = line_data.values
-            #self.line_mark.x = full_arr.index.values
-            #import pdb; pdb.set_trace()
-            #self.line_mark.y = full_arr.values.T
-
-    #else:
-        #    pass
-            #self.line_mark.x = [0.]
-            #self.line_mark.y = [0.]
 
     def _update_visual_attributes(self, changed, force=False):
 

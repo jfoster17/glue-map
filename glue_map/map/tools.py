@@ -3,8 +3,8 @@ import time
 
 import numpy as np
 from glue.config import viewer_tool
-from glue.core.roi import PolygonalROI, RectangularROI
-from glue.core.subset import MultiOrState, OrState, RoiSubsetState
+from glue.core.roi import PolygonalROI, RectangularROI, CategoricalROI
+from glue.core.subset import MultiOrState, OrState, RoiSubsetState, CategoricalROISubsetState
 from glue.viewers.common.tool import CheckableTool, Tool
 from ipyleaflet import Rectangle
 from ipywidgets import CallbackDispatcher
@@ -49,12 +49,12 @@ class PointSelect(IpyLeafletSelectionTool):
     tool_id = "ipyleaflet:pointselect"
     action_text = "Select regions"
     tool_tip = "Select regions"
-    status_tip = "Click to select regions to add to a subset"
+    status_tip = "Click to create subsets from regions"
     shortcut = "D"
 
     def __init__(self, viewer):
         super(PointSelect, self).__init__(viewer)
-        self.list_of_region_ids = []
+        #self.list_of_region_ids = []
         # print("PointSelect created...")
 
     def activate(self):
@@ -68,60 +68,28 @@ class PointSelect(IpyLeafletSelectionTool):
             self.list_of_region_ids = []
             # print(f"{feature=}")
             feature_id = feature["id"]  # This is the name of features in our geodata
-            # print(feature_id)
+            print(feature_id)
+            print(feature)
             # List of region_ids should start with the current subset (how to get this?)
-            active_subset = self.viewer.toolbar_active_subset.selected
-            if active_subset:
-                # print(f'activate_subset is: {active_subset}')
-                existing_subset_states = (
-                    self.viewer.session.data_collection.subset_groups[
-                        active_subset[0]
-                    ].subset_state
-                )
-            else:
-                # print("No active_subset")
-                existing_subset_states = None
-            self.list_of_region_ids.append(int(feature_id))
-            self.list_of_region_ids = list(set(self.list_of_region_ids))
+            #active_subset = self.viewer.toolbar_active_subset.selected
+            #self.list_of_region_ids.append(int(feature_id))
+            #self.list_of_region_ids = list(set(self.list_of_region_ids))
             # print(f"List of region ids to draw... {self.list_of_region_ids}")
+            # In this case we are creating CategorySubsetStates
+            # from the names of the selected regions. This is very
+            # specific to the TEMPO data.
 
-            try:
-                coord = feature["geometry"]["coordinates"]
-                new_subset_states = []
-                # print(np.array(coord).shape)
-                # I think this should loop through MultiPolygon types
-                for region in coord:
-                    # print(np.array(coord).shape)
-                    lons = []
-                    lats = []
-                    for k in np.squeeze(region):
-                        lons.append(k[0])
-                        lats.append(k[1])
-                    roi = PolygonalROI(vx=lons, vy=lats)
-                    new_subset_state = RoiSubsetState(
-                        xatt=self.viewer.state.lon_att,
-                        yatt=self.viewer.state.lat_att,
-                        roi=roi,
-                    )
-                    new_subset_states.append(new_subset_state)
-                if len(new_subset_states) == 1:
-                    final_subset_state = new_subset_states[0]
-                else:
-                    final_subset_state = MultiOrState(new_subset_states)
+            # To make it not hard-coded we would need an attribute
+            # in the mapviewer that was the select_att
+            category_name = self.viewer.state.select_att.label
+            region_name = feature["properties"][category_name]
+            roi = CategoricalROI([region_name, category_name])
+            new_subset_state = CategoricalROISubsetState(att=self.viewer.state.select_att, roi=roi)
 
-                if existing_subset_states is not None:
-                    final_subset_state = OrState(
-                        existing_subset_states, final_subset_state
-                    )
-                else:
-                    pass
-                self.viewer.apply_subset_state(
-                    final_subset_state, override_mode=None
-                )  # What does override_mode do?
+            self.viewer.apply_subset_state(
+                new_subset_state, override_mode=None
+            )  # What does override_mode do?
 
-            except OSError:
-                print("Feature has no geometry defined...")
-                pass
 
         for map_layer in self.viewer.map.layers:
             # Perhaps (perhaps not) make this limited to RegionLayerArtists?

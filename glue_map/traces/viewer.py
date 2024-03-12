@@ -1,7 +1,7 @@
 from glue_jupyter.bqplot.scatter.viewer import BqplotScatterView
 
 from .state import TracesViewerState
-from .layer_artist import TracesLayerArtist#, TracesLayerSubsetArtist
+from .layer_artist import TracesLayerArtist  #, TracesLayerSubsetArtist
 from .state_widgets.viewer_traces import TracesViewerStateWidget
 from .state_widgets.layer_traces import TracesLayerStateWidget
 

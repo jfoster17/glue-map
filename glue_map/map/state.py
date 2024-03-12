@@ -42,6 +42,9 @@ class MapViewerState(ViewerState):
     lat_att = SelectionCallbackProperty(
         default_index=-2, docstring="The attribute to display as latitude"
     )
+    select_att = SelectionCallbackProperty(
+        default_index=1, docstring="The attribute used to define subsets"
+    )
 
     basemap = CallbackProperty(
         TileLayer(url = 'https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}.png',name='CartoDB.LightNoLabels')
@@ -70,6 +73,15 @@ class MapViewerState(ViewerState):
             categorical=False,
         )
 
+        self.select_att_helper = ComponentIDComboHelper(
+            self,
+            "select_att",
+            numeric=False,
+            pixel_coord=False,
+            world_coord=False,
+            categorical=True,
+        )
+
         self.add_callback("layers", self._on_layers_changed)
         self._on_layers_changed()
         self.update_from_dict(kwargs)
@@ -77,6 +89,7 @@ class MapViewerState(ViewerState):
     def _on_layers_changed(self, *args):
         self.lon_att_helper.set_multiple_data(self.layers_data)
         self.lat_att_helper.set_multiple_data(self.layers_data)
+        self.select_att_helper.set_multiple_data(self.layers_data)
 
 
 class MapRegionLayerState(LayerState):
