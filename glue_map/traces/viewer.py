@@ -22,3 +22,5 @@ class TracesViewer(BqplotScatterView):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.figure.fig_margin = {"top":10, "bottom":60, "left":80, "right":10}
+        self.figure.axes[1].label_offset = '50px'
