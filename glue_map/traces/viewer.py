@@ -24,3 +24,12 @@ class TracesViewer(BqplotScatterView):
         super().__init__(*args, **kwargs)
         self.figure.fig_margin = {"top":10, "bottom":60, "left":80, "right":10}
         self.figure.axes[1].label_offset = '50px'
+
+    def _update_subset(self, message):
+        #print(f"TracesViewer._update_subset({message=})")
+        # IPyWidgetView._update_subset() "cleverly" ignores subset edits
+        # that just update the label, but we need these to update the legend
+        if message.subset in self._layer_artist_container:
+            for layer_artist in self._layer_artist_container[message.subset]:
+                layer_artist.update()
+            self.redraw()

@@ -84,10 +84,38 @@ class PointSelect(IpyLeafletSelectionTool):
             roi = CategoricalROI([region_name, category_name])
             new_subset_state = CategoricalROISubsetState(att=self.viewer.state.select_att, roi=roi)
 
-            self.viewer.apply_subset_state(
-                new_subset_state, override_mode=None
-            )  # What does override_mode do?
+            # This is the standard way to add a subset -- it enables
+            # undo, and deals with the subset_mode thing correctly, 
+            # but it does not allow us to set the label. Ultimately
+            # we probably want to use this and then figure out a way to set the
+            # labels afterwards. Boolean logic on subsets make naming a subset
+            # complicated anyway.
 
+            self.viewer.apply_subset_state(new_subset_state, override_mode=None)
+
+            # This is the manual way to set up a new subset group, and the only real problem
+            # is that it does not adjust the subset_mode
+            #self.viewer.session.data_collection.new_subset_group(region_name, new_subset_state)
+            #from glue.core.edit_subset_mode import ReplaceMode
+            ## Switch subset_mode to show the new subset
+            #self.viewer.session.edit_subset_mode = ReplaceMode#self.viewer.session.data_collection.subset_groups[-1]
+
+            #self.viewer.session.edit_subset_mode._edit_mode = self.viewer.session.data_collection.subset_groups[-1]
+
+
+            # Now this renaming happens AFTER the subset is added to all the other viewers
+            # That's mostly fine, as it should (I think) trigger a subset_changed message
+            for subset_group in self.viewer.session.data_collection.subset_groups:
+                # The memory address of the SubsetState is not preserved by
+                # apply_subset_state, so we compare the ROI in order to apply
+                # the nice label to the subset group.
+                #print(f"{subset_group.subset_state.roi.categories=}")
+                #print(f"{new_subset_state.roi.categories=}")
+                #print(f"{subset_group.subset_state.att=}")
+                #print(f"{new_subset_state.att=}")
+
+                if np.array_equal(subset_group.subset_state.roi.categories, new_subset_state.roi.categories):
+                    subset_group.label = region_name
 
         for map_layer in self.viewer.map.layers:
             # Perhaps (perhaps not) make this limited to RegionLayerArtists?
