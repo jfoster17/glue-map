@@ -23,16 +23,22 @@ class TracesViewerState(ScatterViewerState):
 
 
 class TracesLayerState(ScatterLayerState):
+    # I feel like all these things should probably be in viewer state
+
 
     group_att = DDSCProperty(docstring='Multiple data-points will be grouped by this attribute before plotting.', default_index=-1)
-    agg_att = DDSCProperty(docstring='Attribute to aggregate over (mean) before plotting')
+    #I don't think we need this? In general we want to group over x_att
+    #agg_att = DDSCProperty(docstring='Attribute to aggregate over (mean) before plotting')
+
+    estimator = DDCProperty('mean', docstring="Function to use to aggregate data points in each group")
+    errorbar = DDCProperty('std', docstring="Whether to show error bars [None, 'std', 'sem', 'pi', 'ci']")
 
     markers_visible = DDCProperty(False, docstring="Whether to show markers")
     line_visible = DDCProperty(True, docstring="Whether to show a line connecting all positions")
 
     def __init__(self, layer=None, viewer_state=None, **kwargs):
         self.group_att_helper = ComponentIDComboHelper(self, 'group_att', categorical=True)
-        self.agg_att_helper = ComponentIDComboHelper(self, 'agg_att', categorical=True)
+        #self.agg_att_helper = ComponentIDComboHelper(self, 'agg_att', categorical=True)
 
         super().__init__(layer=layer, viewer_state=viewer_state, **kwargs)
 
@@ -42,10 +48,10 @@ class TracesLayerState(ScatterLayerState):
         #try:
         if self.layer is None:
             self.group_att_helper.set_multiple_data([])
-            self.agg_att_helper.set_multiple_data([])
+            #self.agg_att_helper.set_multiple_data([])
         else:
             self.group_att_helper.set_multiple_data([self.layer])
-            self.agg_att_helper.set_multiple_data([self.layer])
+            #self.agg_att_helper.set_multiple_data([self.layer])
         # First time around the init function
         # calls something, but we haven't actually 
         #set the 

@@ -66,11 +66,12 @@ class TracesLayerArtist(BqplotScatterLayerArtist):
         for line_mark in self.line_marks:
             line_mark.colors = [color2hex(self.state.color)]
             line_mark.opacities = [self.state.alpha]
+        self.error_marks = [self.lines_cls(scales=self.view.scales, x=[0.], y=[0.])]
         #self.line_mark.colors = [color2hex(self.state.color)]
         #self.line_mark.opacities = [self.state.alpha]
         self.density_mark = None # We need these defined for now, but ideally we remove entirely
         self.vector_mark = None
-        self.view.figure.marks = list(self.view.figure.marks) + [self.scatter_mark] + self.line_marks
+        self.view.figure.marks = list(self.view.figure.marks) + [self.scatter_mark] + self.line_marks + self.error_marks
 
     def _update_data(self):
 
@@ -123,9 +124,15 @@ class TracesLayerArtist(BqplotScatterLayerArtist):
             # list with the data inside of it?
             #import pdb; pdb.set_trace()
             marks = self.view.figure.marks[:]
-            for line_mark in self.line_marks:
+            for line_mark in self.line_marks+self.error_marks:
                 marks.remove(line_mark)
-            self.line_marks = []#*self.state.num_groups
+            self.line_marks = []
+            self.error_marks = []
+
+            #marks = self.view.figure.marks[:]
+            #for error_mark in self.error_marks:
+            #    marks.remove(error_mark)
+
             #for line_mark in self.line_marks:
             #    line_mark.colors = [color2hex(self.state.color)]
             #    line_mark.opacities = [self.state.alpha]
@@ -135,26 +142,52 @@ class TracesLayerArtist(BqplotScatterLayerArtist):
             #line_ys = []
 
             linestyles = ['solid', 'dashed', 'dotted', 'dash_dotted'] * 10
-            markers = ['circle', 'triangle-down', 'triangle-up', 'square', 'diamond', '+', 'cross'] * 10
+            markers = ['circle', 'triangle-down', 'triangle-up', 'square', 'diamond', 'plus'] * 10
 
-            lines_data = []
             for i,(name, group) in enumerate(dfg):
                 y_att = self._viewer_state.y_att.label
                 x_att = self._viewer_state.x_att.label
 
-                data = group.groupby([x_att])[y_att].mean()
-                #lines_data.append(data)
+                data = group.groupby([x_att])[y_att].aggregate(self.state.estimator)
                 x_data = data.index.values
                 y_data = data.values
-                label = name[0]+" "+subset_name.replace("Metro Area", "")
-                line_mark = self.lines_cls(scales=self.view.scales, x=x_data, y=y_data, display_legend=True, labels=[label])
-                line_mark.colors = [color2hex(self.state.color)]
-                line_mark.opacities = [self.state.alpha]
-                line_mark.line_style = linestyles[i]
-                line_mark.marker = markers[i]
+
+                if self.state.errorbar is not None:
+                    if self.state.errorbar == "std":
+                        error = group.groupby([x_att])[y_att].std().values
+                        lo_error = y_data - error
+                        hi_error = y_data + error
+                    elif self.state.errorbar == "sem":
+                        error = group.groupby([x_att])[y_att].sem().values
+                        lo_error = y_data - error
+                        hi_error = y_data + error
+
+                #lines_data.append(data)
+                # For a very large number of groups we can't distinguish individaul ones
+                # So we set 
+                if self.state.num_groups < 10: 
+                    label = name[0]+" "+subset_name.replace("Metro Area", "")+" ("+self.state.estimator+")"
+                    line_mark = self.lines_cls(scales=self.view.scales, x=x_data, y=y_data, display_legend=True, labels=[label])
+                    line_mark.colors = [color2hex(self.state.color)]
+                    line_mark.opacities = [self.state.alpha]
+                    line_mark.line_style = linestyles[i]
+                    line_mark.marker = markers[i]
+                    if self.state.errorbar is not None:
+                        error_mark = self.lines_cls(scales=self.view.scales, x=x_data, y=[lo_error, hi_error],
+                                                    opacities=[0],
+                                                    fill='between', 
+                                                    fill_opacities=[self.state.alpha/4.], 
+                                                    fill_colors=[color2hex(self.state.color)])
+                        self.error_marks.append(error_mark)
+                else:
+                    line_mark = self.lines_cls(scales=self.view.scales, x=x_data, y=y_data)
+                    line_mark.colors = [color2hex(self.state.color)]
+                    line_mark.opacities = [self.state.alpha]
+                    line_mark.line_style = linestyles[0]
+
                 self.line_marks.append(line_mark)
-                
-            self.view.figure.marks = marks + self.line_marks
+            
+            self.view.figure.marks = marks + self.line_marks + self.error_marks
 
     def _update_visual_attributes(self, changed, force=False):
 
@@ -204,6 +237,8 @@ class TracesLayerArtist(BqplotScatterLayerArtist):
         if force or "color" in changed:
             for line_mark in self.line_marks:
                 line_mark.colors = [color2hex(self.state.color)]
+            for error_mark in self.error_marks:
+                error_mark.fill_colors = [color2hex(self.state.color)]
                 # Probably want to change either color of linestyle based on the group
             #self.line_mark.colors = [color2hex(self.state.color)]*self.state.num_groups
         if force or "linewidth" in changed:
@@ -232,17 +267,28 @@ class TracesLayerArtist(BqplotScatterLayerArtist):
             if force or "alpha" in changed:
                 for line_mark in self.line_marks:
                     line_mark.opacities = [self.state.alpha]
+                for error_mark in self.error_marks:
+                    error_mark.fill_opacities = [self.state.alpha/4.]
+                    error_mark.opacities = [0]
             #self.line_mark.opacities = [self.state.alpha]*self.state.num_groups
 
         if force or "visible" in changed:
             self.scatter_mark.visible = self.state.visible and self.state.markers_visible
             for line_mark in self.line_marks:
                 line_mark.visible = self.state.visible and self.state.line_visible
+                if self.state.num_groups < 10:
+                    line_mark.display_legend = line_mark.visible
+                else:
+                    line_mark.display_legend = False
+            for error_mark in self.error_marks:
+                error_mark.visible = self.state.visible and self.state.line_visible
+
 
             #TODO: FIX THIS!!
             #for line_mark in self.line_marks:
             #    line_mark.visible = self.state.visible and self.state.line_visible
-    
+
+
     def _update_scatter(self, force=False, **kwargs):
 
         if (self.scatter_mark is None
@@ -252,11 +298,11 @@ class TracesLayerArtist(BqplotScatterLayerArtist):
             or self.state.layer is None
         ):
             return
-
+        #print("Called _update_scatter")
         # NOTE: we need to evaluate this even if force=True so that the cache
         # of updated properties is up to date after this method has been called.
         changed = self.pop_changed_properties()
-
+        #print(f"{changed=}")
         if force or len(changed & DATA_PROPERTIES) > 0:
             self._update_data()
             force = True
@@ -277,9 +323,15 @@ class TracesLayerArtist(BqplotScatterLayerArtist):
         if self.scatter_mark is not None:
             self.scatter_mark.x = []
             self.scatter_mark.y = []
-        if self.line_mark is not None:
-            self.line_mark.x = [0.]
-            self.line_mark.y = [0.]
+        if self.line_marks is not None:
+            for line_mark in self.line_marks:
+                line_mark.x = [0.]
+                line_mark.y = [0.]
+        if self.error_marks is not None:
+            for error_mark in self.error_marks:
+                error_mark.x = [0.]
+                error_mark.y = [0.]
+
 
     def _update_zorder(self, *args):
         sorted_layers = sorted(self.view.layers, key=lambda layer: layer.state.zorder)
