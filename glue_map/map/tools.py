@@ -116,6 +116,7 @@ class PointSelect(IpyLeafletSelectionTool):
 
                 if np.array_equal(subset_group.subset_state.roi.categories, new_subset_state.roi.categories):
                     subset_group.label = region_name
+                    subset_group.style.alpha = 0.9
 
         for map_layer in self.viewer.map.layers:
             # Perhaps (perhaps not) make this limited to RegionLayerArtists?

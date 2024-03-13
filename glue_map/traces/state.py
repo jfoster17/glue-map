@@ -25,7 +25,6 @@ class TracesViewerState(ScatterViewerState):
 class TracesLayerState(ScatterLayerState):
     # I feel like all these things should probably be in viewer state
 
-
     group_att = DDSCProperty(docstring='Multiple data-points will be grouped by this attribute before plotting.', default_index=-1)
     #I don't think we need this? In general we want to group over x_att
     #agg_att = DDSCProperty(docstring='Attribute to aggregate over (mean) before plotting')

@@ -4,6 +4,7 @@ from glue.core.component_id import ComponentIDList
 from glue.core.data import Data
 from glue.core.subset import Subset
 from glue.core.coordinates import Coordinates
+from datetime import datetime
 import numpy as np
 import xarray as xr
 import glob
@@ -19,11 +20,15 @@ def load_tempo_data(directory, quality_flag='high', sample=False, time_to_int=Fa
     Read all the TEMPO datafiles from a given directory into a glue data object
     """
     input_files = glob.glob(f"{directory}/TEMPO_NO2_L3_V01_*_S*.nc")
+    # sort input_files by datetime
+    input_files.sort()
     if sample:
         input_files = input_files[0:10]
     input_data = []
-    
+    datetimes = []
     for input_file in input_files:
+        datetimestring = input_file.split('_')[-2]
+        datetimes.append(datetime.strptime(datetimestring, '%Y%m%dT%H%M%SZ'))
         coords = xr.open_dataset(input_file, engine='h5netcdf', chunks='auto')
         product = xr.open_dataset(input_file, engine='h5netcdf', chunks='auto', group='product')
         geoloc = xr.open_dataset(input_file, engine='h5netcdf', chunks='auto', group='geolocation')
@@ -48,7 +53,7 @@ def load_tempo_data(directory, quality_flag='high', sample=False, time_to_int=Fa
     new_data.data = new_data.data/no2_norm
     if time_to_int:
         new_data.coords['time'] = range(len(new_data.coords['time']))  # glue needs pixel coordinates to be integers. FIXME! 
-    return XarrayData(new_data, label='tempo_no2', coords=XarrayCoordinates(new_data, n_dim=3))
+    return XarrayData(new_data, label='tempo_no2', coords=XarrayCoordinates(new_data, n_dim=3)), datetimes
 
 
 class InvalidGeoData(Exception):

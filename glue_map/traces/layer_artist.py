@@ -176,7 +176,7 @@ class TracesLayerArtist(BqplotScatterLayerArtist):
                         error_mark = self.lines_cls(scales=self.view.scales, x=x_data, y=[lo_error, hi_error],
                                                     opacities=[0],
                                                     fill='between', 
-                                                    fill_opacities=[self.state.alpha/4.], 
+                                                    fill_opacities=[self.state.alpha/8.], 
                                                     fill_colors=[color2hex(self.state.color)])
                         self.error_marks.append(error_mark)
                 else:
@@ -268,7 +268,7 @@ class TracesLayerArtist(BqplotScatterLayerArtist):
                 for line_mark in self.line_marks:
                     line_mark.opacities = [self.state.alpha]
                 for error_mark in self.error_marks:
-                    error_mark.fill_opacities = [self.state.alpha/4.]
+                    error_mark.fill_opacities = [self.state.alpha/8.]
                     error_mark.opacities = [0]
             #self.line_mark.opacities = [self.state.alpha]*self.state.num_groups
 
