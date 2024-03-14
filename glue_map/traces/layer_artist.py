@@ -109,7 +109,7 @@ class TracesLayerArtist(BqplotScatterLayerArtist):
 
         #if self.state.line_visible:
 
-        if self.state.group_att is not None:
+        if self._viewer_state.group_att is not None:
             if isinstance(self.layer, Data):
                 df = self.layer.get_object(pd.DataFrame)
                 subset_name = ""
@@ -117,7 +117,7 @@ class TracesLayerArtist(BqplotScatterLayerArtist):
                 #  Get a dataframe for just the subset
                 subset_name = self.layer.label
                 df = self.layer.data.get_subset_object(subset_id=subset_name, cls=pd.DataFrame)
-            dfg = df.groupby([self.state.group_att.label])
+            dfg = df.groupby([self._viewer_state.group_att.label])
             self.state.num_groups = len(dfg)
             #print(self.state.num_groups)
             # This could cause flickering. Can be just initialize this empty and then create this
@@ -144,20 +144,20 @@ class TracesLayerArtist(BqplotScatterLayerArtist):
             linestyles = ['solid', 'dashed', 'dotted', 'dash_dotted'] * 10
             markers = ['circle', 'triangle-down', 'triangle-up', 'square', 'diamond', 'plus'] * 10
 
-            for i,(name, group) in enumerate(dfg):
+            for i, (name, group) in enumerate(dfg):
                 y_att = self._viewer_state.y_att.label
                 x_att = self._viewer_state.x_att.label
 
-                data = group.groupby([x_att])[y_att].aggregate(self.state.estimator)
+                data = group.groupby([x_att])[y_att].aggregate(self._viewer_state.estimator)
                 x_data = data.index.values
                 y_data = data.values
 
-                if self.state.errorbar is not None:
-                    if self.state.errorbar == "std":
+                if self._viewer_state.errorbar is not None:
+                    if self._viewer_state.errorbar == "std":
                         error = group.groupby([x_att])[y_att].std().values
                         lo_error = y_data - error
                         hi_error = y_data + error
-                    elif self.state.errorbar == "sem":
+                    elif self._viewer_state.errorbar == "sem":
                         error = group.groupby([x_att])[y_att].sem().values
                         lo_error = y_data - error
                         hi_error = y_data + error
@@ -166,13 +166,13 @@ class TracesLayerArtist(BqplotScatterLayerArtist):
                 # For a very large number of groups we can't distinguish individaul ones
                 # So we set 
                 if self.state.num_groups < 10: 
-                    label = name[0]+" "+subset_name.replace("Metro Area", "")+" ("+self.state.estimator+")"
+                    label = name[0]+" "+subset_name.replace("Metro Area", "")+" ("+self._viewer_state.estimator+")"
                     line_mark = self.lines_cls(scales=self.view.scales, x=x_data, y=y_data, display_legend=True, labels=[label])
                     line_mark.colors = [color2hex(self.state.color)]
                     line_mark.opacities = [self.state.alpha]
                     line_mark.line_style = linestyles[i]
                     line_mark.marker = markers[i]
-                    if self.state.errorbar is not None:
+                    if self._viewer_state.errorbar is not None:
                         error_mark = self.lines_cls(scales=self.view.scales, x=x_data, y=[lo_error, hi_error],
                                                     opacities=[0],
                                                     fill='between', 
@@ -283,12 +283,6 @@ class TracesLayerArtist(BqplotScatterLayerArtist):
             for error_mark in self.error_marks:
                 error_mark.visible = self.state.visible and self.state.line_visible
 
-
-            #TODO: FIX THIS!!
-            #for line_mark in self.line_marks:
-            #    line_mark.visible = self.state.visible and self.state.line_visible
-
-
     def _update_scatter(self, force=False, **kwargs):
 
         if (self.scatter_mark is None
@@ -331,7 +325,6 @@ class TracesLayerArtist(BqplotScatterLayerArtist):
             for error_mark in self.error_marks:
                 error_mark.x = [0.]
                 error_mark.y = [0.]
-
 
     def _update_zorder(self, *args):
         sorted_layers = sorted(self.view.layers, key=lambda layer: layer.state.zorder)
