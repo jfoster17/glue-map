@@ -66,11 +66,23 @@ class XarrayCoordinates(Coordinates):
     is probably inefficient.
 
     Does not yet handle units.
+    Needs input arrays to be longitude, latitude, time, etc.
     """
     def __init__(self, xarr, **kwargs):
-        self.wc = [np.asarray(w).astype(float, casting='unsafe') for w in xarr.indexes.values()]
+
+        # This is more principled, but we actually want to enforce
+        # longitude, latitude, other order
+
+        #vals = xarr.indexes.values()
+        #coords = xarr.coords.keys()
+
+        # So for now we hard-code this. FIXME!!
+        coords = ["longitude", "latitude", "time"]
+        vals = [xarr[coord].values for coord in coords]
+
+        self.wc = [np.asarray(w).astype(float, casting='unsafe') for w in vals]
         self.pc = [np.arange(len(wc)) for wc in self.wc]
-        self.coord_keys = xarr.coords.keys()
+        self.coord_keys = coords
         #self.units = []
         #for coord in self.coord_keys:
         #    try:
@@ -85,7 +97,7 @@ class XarrayCoordinates(Coordinates):
         return world_values
     
     def world_to_pixel_values(self, *args):
-        pixel_values = tuple([np.interp(arg, self.wc[i], self.pc[i]) for i, arge in enumerate(args)])
+        pixel_values = tuple([np.interp(arg, self.wc[i], self.pc[i]) for i, arg in enumerate(args)])
         return pixel_values
 
     #@property
