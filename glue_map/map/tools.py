@@ -156,7 +156,7 @@ class RectangleSelect(IpyLeafletSelectionTool):
         def map_interaction(**kwargs):
             # print(kwargs)
             if kwargs["type"] == "mousedown":
-                print(f'mousedown {kwargs["coordinates"]}')
+                #print(f'mousedown {kwargs["coordinates"]}')
                 self.start_coords = kwargs["coordinates"]
                 self.rect = Rectangle(
                     bounds=(self.start_coords, kwargs["coordinates"]),

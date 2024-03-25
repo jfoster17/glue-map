@@ -40,6 +40,7 @@ class TracesLayerArtist(BqplotScatterLayerArtist):
 
         ScatterLayerState.linestyle.set_display_func(self.state, linestyle_display.get)
 
+        self.scatter_mark = None
         # Watch for changes in the viewer state which would require the
         # layers to be redrawn
         self._viewer_state.add_global_callback(self._update_scatter)
@@ -49,16 +50,6 @@ class TracesLayerArtist(BqplotScatterLayerArtist):
 
         self.view = view
 
-        # Scatter points
-
-        self.scale_color_scatter = bqplot.ColorScale()
-        self.scales_scatter = dict(
-            self.view.scales,
-            color=self.scale_color_scatter,
-        )
-
-        self.scatter_mark = ScatterGL(scales=self.scales_scatter, x=[0, 1], y=[0, 1])
-
         # lines
         self.lines_cls = LinesGL if USE_GL else bqplot.Lines
         
@@ -67,57 +58,20 @@ class TracesLayerArtist(BqplotScatterLayerArtist):
             line_mark.colors = [color2hex(self.state.color)]
             line_mark.opacities = [self.state.alpha]
         self.error_marks = [self.lines_cls(scales=self.view.scales, x=[0.], y=[0.])]
-        #self.line_mark.colors = [color2hex(self.state.color)]
-        #self.line_mark.opacities = [self.state.alpha]
         self.density_mark = None # We need these defined for now, but ideally we remove entirely
         self.vector_mark = None
-        self.view.figure.marks = list(self.view.figure.marks) + [self.scatter_mark] + self.line_marks + self.error_marks
+        self.view.figure.marks = list(self.view.figure.marks) + self.line_marks + self.error_marks
 
     def _update_data(self):
 
-        try:
-            x = ensure_numerical(self.layer[self._viewer_state.x_att].ravel())
-            if x.dtype.kind == "M":
-                x = datetime64_to_mpl(x)
-
-        except (IncompatibleAttribute, IndexError):
-            # The following includes a call to self.clear()
-            self.disable_invalid_attributes(self._viewer_state.x_att)
-            return
-        else:
-            self.enable()
-
-        try:
-            y = ensure_numerical(self.layer[self._viewer_state.y_att].ravel())
-            if y.dtype.kind == "M":
-                y = datetime64_to_mpl(y)
-        except (IncompatibleAttribute, IndexError):
-            # The following includes a call to self.clear()
-            self.disable_invalid_attributes(self._viewer_state.y_att)
-            return
-        else:
-            self.enable()
-
-        if self.state.markers_visible:
-
-            self.scatter_mark.x = x.astype(np.float32).ravel()
-            self.scatter_mark.y = y.astype(np.float32).ravel()
-
-        else:
-            self.scatter_mark.x = []
-            self.scatter_mark.y = []
-
         #if self.state.line_visible:
+        if isinstance(self.layer, Data):
+            return
 
         if self._viewer_state.group_att is not None:
-            if isinstance(self.layer, Data):
-                df = self.layer.get_object(pd.DataFrame)
-                subset_name = ""
-            else:
-                #  Get a dataframe for just the subset
-                subset_name = self.layer.label
-                df = self.layer.data.get_subset_object(subset_id=subset_name, cls=pd.DataFrame)
+            df = self.layer.state.profile
             dfg = df.groupby([self._viewer_state.group_att.label])
+            print(f"{dfg=}")
             self.state.num_groups = len(dfg)
             #print(self.state.num_groups)
             # This could cause flickering. Can be just initialize this empty and then create this
@@ -128,18 +82,6 @@ class TracesLayerArtist(BqplotScatterLayerArtist):
                 marks.remove(line_mark)
             self.line_marks = []
             self.error_marks = []
-
-            #marks = self.view.figure.marks[:]
-            #for error_mark in self.error_marks:
-            #    marks.remove(error_mark)
-
-            #for line_mark in self.line_marks:
-            #    line_mark.colors = [color2hex(self.state.color)]
-            #    line_mark.opacities = [self.state.alpha]
-            #self.view.figure.marks = marks + self.line_marks
-
-            #print(self.view.figure.marks)
-            #line_ys = []
 
             linestyles = ['solid', 'dashed', 'dotted', 'dash_dotted'] * 10
             markers = ['circle', 'triangle-down', 'triangle-up', 'square', 'diamond', 'plus'] * 10
@@ -163,7 +105,7 @@ class TracesLayerArtist(BqplotScatterLayerArtist):
                         hi_error = y_data + error
 
                 #lines_data.append(data)
-                # For a very large number of groups we can't distinguish individaul ones
+                # For a very large number of groups we can't distinguish individual ones
                 # So we set 
                 if self.state.num_groups < 10: 
                     label = name[0]+" "+subset_name.replace("Metro Area", "")+" ("+self._viewer_state.estimator+")"
@@ -193,42 +135,6 @@ class TracesLayerArtist(BqplotScatterLayerArtist):
 
         if not self.enabled:
             return
-
-        if self.state.markers_visible:
-
-            if self.state.cmap_mode == "Fixed" or self.state.cmap_att is None:
-                if force or "color" in changed or "cmap_mode" in changed or "fill" in changed:
-                    self.scatter_mark.color = None
-                    self.scatter_mark.colors = [color2hex(self.state.color)]
-                    self.scatter_mark.fill = self.state.fill
-            elif force or any(prop in changed for prop in CMAP_PROPERTIES) or "fill" in changed:
-                self.scatter_mark.color = ensure_numerical(
-                    self.layer[self.state.cmap_att].ravel(),
-                )
-                self.scatter_mark.fill = self.state.fill
-                self.scale_color_scatter.colors = colormap_to_hexlist(
-                    self.state.cmap,
-                )
-                self.scale_color_scatter.min = float_or_none(self.state.cmap_vmin)
-                self.scale_color_scatter.max = float_or_none(self.state.cmap_vmax)
-
-            if force or any(prop in changed for prop in MARKER_PROPERTIES):
-
-                if self.state.size_mode == "Fixed" or self.state.size_att is None:
-                    self.scatter_mark.default_size = int(
-                        self.state.size * self.state.size_scaling,
-                    )
-                    self.scatter_mark.size = None
-                else:
-                    self.scatter_mark.default_size = int(self.state.size_scaling * 7)
-                    s = ensure_numerical(self.layer[self.state.size_att].ravel())
-                    s = ((s - self.state.size_vmin) /
-                         (self.state.size_vmax - self.state.size_vmin))
-                    np.clip(s, 0, 1, out=s)
-                    s *= 0.95
-                    s += 0.05
-                    s *= self.scatter_mark.default_size
-                    self.scatter_mark.size = s ** 2
 
         # bqplot only supports these for linestyles
         linestyles = ['solid', 'dashed', 'dotted', 'dash_dotted'] * 10
@@ -273,7 +179,7 @@ class TracesLayerArtist(BqplotScatterLayerArtist):
             #self.line_mark.opacities = [self.state.alpha]*self.state.num_groups
 
         if force or "visible" in changed:
-            self.scatter_mark.visible = self.state.visible and self.state.markers_visible
+            #self.scatter_mark.visible = self.state.visible and self.state.markers_visible
             for line_mark in self.line_marks:
                 line_mark.visible = self.state.visible and self.state.line_visible
                 if self.state.num_groups < 10:
