@@ -692,6 +692,7 @@ class MapXarrayLayerArtist(LayerArtist):
                     return array
                 self.norm_func = normalize_over_full_data
 
+
         if force or any(x in changed for x in ["lon_att", "lat_att", "t"]):
             if isinstance(self.layer, Data):
                 self._sliced_data.indices = (self.state.t, None, None)
@@ -709,7 +710,11 @@ class MapXarrayLayerArtist(LayerArtist):
                 #print(f"layer updated {time()}")
             else:
                 pass
-        self.enable()
+
+        #if force or "visible" in changed:
+        self.image_overlay_layer.visible = self.state.visible
+
+        #self.enable()
 
 
 def project_array(array, bounds, refinement=2):
