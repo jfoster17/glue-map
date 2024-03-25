@@ -153,7 +153,7 @@ class IPyLeafletMapViewer(IPyWidgetView):
 
     }
 
-    tools = ["ipyleaflet:pointselect"]
+    tools = ["ipyleaflet:pointselect", "ipyleaflet:rectangleselect"]
 
     def __init__(self, session, state=None):
         # logger.debug("Creating a new Viewer...")
