@@ -1,9 +1,11 @@
 from glue.core.hub import HubListener
 
-from glue.viewers.scatter.state import ScatterViewerState, ScatterLayerState
-from glue.viewers.matplotlib.state import (DeferredDrawSelectionCallbackProperty as DDSCProperty,
+from glue.viewers.matplotlib.state import (MatplotlibDataViewerState,
+                                           MatplotlibLayerState,
+                                           DeferredDrawSelectionCallbackProperty as DDSCProperty,
                                            DeferredDrawCallbackProperty as DDCProperty)
-from glue.core.data_combo_helper import ComponentIDComboHelper
+from glue.core.data_combo_helper import ComponentIDComboHelper, ComboHelper
+
 from glue.core import BaseData
 from glue.core.data_combo_helper import ManualDataComboHelper
 from shapely.geometry import Polygon
@@ -13,6 +15,7 @@ import pandas as pd
 from pandas.tseries.holiday import USFederalHolidayCalendar
 from timezonefinder import TimezoneFinder
 from glue.core.message import SubsetUpdateMessage
+from echo import delay_callback
 
 __all__ = ['TracesViewerState', 'TracesLayerState']
 
@@ -39,57 +42,124 @@ def weekend_or_holiday(rec):
         return "Work Day"
 
 
-class TracesViewerState(ScatterViewerState):
+class TracesViewerState(MatplotlibDataViewerState):
+    """
+    A TracesViewer takes a datacube of values (y) over three coordinates (lon, lat, t) and
+    plots the mean value value of d versus t for values averaged over some region in x and y.
 
-    reference_data = DDSCProperty(docstring='Reference data')
-    group_att = DDSCProperty(docstring='Multiple data-points will be grouped by this attribute before plotting.', default_index=-1)
-    #I don't think we need this? In general we want to group over x_att
-    #agg_att = DDSCProperty(docstring='Attribute to aggregate over (mean) before plotting')
+    We don't currently allow the user to change lon_att, lat_att, or t_att, since we assume
+    we can get these from reference_data directly.
+    
+    """
+    y_att = DDSCProperty(docstring='The attribute to plot on the y-axis')
+    x_att = DDSCProperty(docstring='The attribute to plot on the x-axis') # Fake
 
-    estimator = DDCProperty('mean', docstring="Function to use to aggregate data points in each group")
-    errorbar = DDCProperty('std', docstring="Whether to show error bars [None, 'std', 'sem', 'pi', 'ci']")
+    reference_data = DDSCProperty(docstring='The underlying datacube used to generate the traces.')
+    group_var = DDSCProperty(docstring='Data-points will be grouped by this attribute so that each unique value of group_var will produce a single line.')
+
+    x_var = DDSCProperty(docstring='Variable to plot on the x-axis')
+    estimator = DDSCProperty(default_index = 0, docstring="Function to use to aggregate data points in each group")
+    errorbar = DDSCProperty(default_index = 1, docstring="Whether to show error bars [None, 'std', 'sem', 'pi', 'ci']")
 
     def __init__(self, **kwargs):
         super().__init__()
-        self.x_att_helper = ComponentIDComboHelper(self, 'x_att', categorical=False)
-        self.y_att_helper = ComponentIDComboHelper(self, 'y_att', categorical=False)
-        self.group_att_helper = ComponentIDComboHelper(self, 'group_att', categorical=True)
+
         self.ref_data_helper = ManualDataComboHelper(self, 'reference_data')
 
+        self.add_callback('layers', self._layers_changed)
+
+        self.y_att_helper = ComponentIDComboHelper(self, 'y_att', categorical=False)
+
+        self.group_var_helper = ComboHelper(self, 'group_var')
+        self.group_var_helper.choices = ['Season', 'Day Type', 'Day']
+        self.group_var_helper.selection = 'Season'
+
+        self.x_var_helper = ComboHelper(self, 'x_var')
+        self.x_var_helper.choices = ['Local Hour', 'Day of Week', 'Season', 'Day Type']
+        self.x_var_helper.selection = 'Local Hour'
+
+        self.estimator_helper = ComboHelper(self, 'estimator')
+        self.estimator_helper.choices = ['mean', 'sum', 'median', 'max', 'min']
+        self.estimator_helper.selection = 'mean'
+
+        self.errorbar_helper = ComboHelper(self, 'errorbar')
+        self.errorbar_helper.choices = [None, 'std', 'sem', 'pi', 'ci']
+        self.errorbar_helper.selection = 'std'
+
+        self.x_min = 0
+        self.x_max = 24
+        self.y_min = 0
+        self.y_max = 1
+
     def _layers_changed(self, *args):
-        super()._layers_changed(*args)
-        self.group_att_helper.set_multiple_data(self.layers_data)
-        self._update_combo_ref_data()
-        self._set_reference_data()
 
-    def _set_reference_data(self):
-        if self.reference_data is None:
-            for layer in self.layers:
-                if isinstance(layer.layer, BaseData):
-                    self.reference_data = layer.layer
-                    return
+        layers_data = self.layers_data
+        layers_data_cache = getattr(self, '_layers_data_cache', [])
 
-    def _update_combo_ref_data(self):
+        if layers_data == layers_data_cache:
+            return
+
+        self.y_att_helper.set_multiple_data(self.layers_data)
+
+        self._layers_data_cache = layers_data
         self.ref_data_helper.set_multiple_data(self.layers_data)
+        #self._set_reference_data()
+
+    def reset_limits(self):
+        with delay_callback(self, 'x_min', 'x_max', 'y_min', 'y_max'):
+            self._reset_x_limits()
+            self._reset_y_limits()
+
+    def _reset_y_limits(self, *event):
+        for layer in self.layers:
+            if layer is not None:
+                self.y_min = min(self.y_min, layer.v_min)
+                self.y_max = max(self.y_max, layer.v_max)
+
+    def _reset_x_limits(self, *event):
+        if self.x_var == 'Local Hour':
+            self.x_min = 0
+            self.x_max = 24
+        else: # Temporary default. FIXME
+            self.x_min = 0
+            self.x_max = 24
 
 
-class TracesLayerState(ScatterLayerState, HubListener):
+class TracesLayerState(MatplotlibLayerState, HubListener):
+    """
+    This class holds the state for a single layer in a TracesViewer.
 
+    If is strongly inspired by the ProfileLayerState in glue-jupyter, but we have
+    to make some changes to account for the fact that we are plotting multiple
+    lines on the same plot.
+    """
+
+    # Technically we could choose an attribute to plot here, for now we assume NO2
     markers_visible = DDCProperty(False, docstring="Whether to show markers")
     line_visible = DDCProperty(True, docstring="Whether to show a line connecting all positions")
 
+    _viewer_callbacks_set = False
     _layer_subset_updates_subscribed = False
-    _profile_cache = None
-    
+    _data_for_display = None
+
     def __init__(self, layer=None, viewer_state=None, **kwargs):
         super().__init__(layer=layer, viewer_state=viewer_state, **kwargs)
+        self.num_groups = 0
+        self.v_min = 0
+        self.v_max = 1
+        self.viewer_state = viewer_state
+
+        self.add_callback('layer', self._on_layer_change, priority=1000)
+        self.add_callback('visible', self.reset_data_for_display, priority=1000)
+
+        if layer is not None:
+            self._on_layer_change()
+
+        self.update_from_dict(kwargs)
 
     def _on_layer_change(self, *args):
 
         if self.layer is not None:
-
-            # Set the available attributes
-            #self.attribute_att_helper.set_multiple_data([self.layer])
 
             # We only subscribe to SubsetUpdateMessage the first time that 'layer'
             # is not None, and then do any filtering in the callback function.
@@ -97,23 +167,26 @@ class TracesLayerState(ScatterLayerState, HubListener):
                 self.layer.hub.subscribe(self, SubsetUpdateMessage, handler=self._on_subset_update)
                 self._layer_subset_updates_subscribed = True
 
-        self.reset_cache()
+        self.reset_data_for_display()
 
     def _on_subset_update(self, msg):
         if msg.subset is self.layer:
-            self.reset_cache()
+            self.reset_data_for_display()
 
     @property
-    def profile(self):
-        return self._profile_cache
+    def data_for_display(self):
+        return self._data_for_display
 
-    def reset_cache(self, *args):
-        # If this is a subset for a region that is already cached
-        # we simply return the cached profile. Doing this basically
-        # ignores all the other options in the profile viewer and
-        # just relies on the subset label
+    def reset_data_for_display(self, *args):
+        """
+        In the profile viewer, the profile is a single set of x and y values.
+        Here, we have multiple groups so _data_for_display is 
+        [{name:'group_name', x: [x0, x1, ...], y: [y0, y1, ...], lo_error: [y0lo, y1lo, ...], hi_error: [y0hi, y1hi, ...]}]
+        
+        """
+        print("In reset_cache")
         if not isinstance(self.layer, BaseData):
-            print("In reset_cache")
+            print("This is a subset...")
             try:
                 region_geom = self.layer.subset_state.roi.to_polygon()
             except AttributeError:
@@ -122,7 +195,7 @@ class TracesLayerState(ScatterLayerState, HubListener):
             clip_poly = Polygon([(x, y) for x, y in zip(region_geom[0], region_geom[1])])
             center = shapely.centroid(clip_poly)
             center_lon, center_lat = center.x, center.y
-            print(f"center_lon: {center_lon}, center_lat: {center_lat}")
+            ##print(f"center_lon: {center_lon}, center_lat: {center_lat}")
             tz = tf.timezone_at(lng=center_lon, lat=center_lat)
             region_clip = self.viewer_state.reference_data.xarr.rio.clip([clip_poly], self.viewer_state.reference_data.xarr.rio.crs)
 
@@ -130,16 +203,41 @@ class TracesLayerState(ScatterLayerState, HubListener):
             region_mean = region_clip.mean(["longitude", "latitude"]).compute()
 
             ds = region_mean.to_pandas().resample('1H').mean().dropna()
-            print(f"ds: {ds}")
+            ##print(f"ds: {ds}")
             ds.index = ds.index.tz_localize('UTC').tz_convert(tz)
             seasons = month_to_season_lu[ds.index.month]
-            df = pd.DataFrame({'Day': ds.index.date, 
-                               'Local Hour': ds.index.hour, 
-                               'Nitrogen Dioxide Tropospheric Column Density (10^16 / cm^2)': ds.values,  
+            df = pd.DataFrame({'Day': ds.index.date,
+                               'Local Hour': ds.index.hour,
+                               'vertical_column_troposphere': ds.values, 
                                'Day of Week': ds.index.weekday,
                                'Season': seasons})
             df['Day Type'] = df.apply(weekend_or_holiday, axis=1)
-            print(f"df: {df}")
-            self._profile_cache = df
+            #print(f"df: {df}")
+
+            dfg = df.groupby([self.viewer_state.group_var])
+            print(f"{dfg=}")
+            self.num_groups = len(dfg)
+            all_data = []
+            for name, group in dfg:
+                y_att = self.viewer_state.y_att.label
+                x_att = self.viewer_state.x_var
+
+                data = group.groupby([x_att])[y_att].aggregate(self.viewer_state.estimator)
+                x_data = data.index.values
+                y_data = data.values
+                if self.viewer_state.errorbar is not None:
+                    if self.viewer_state.errorbar == "std":
+                        error = group.groupby([x_att])[y_att].std().values
+                        lo_error = y_data - error
+                        hi_error = y_data + error
+                    elif self._viewer_state.errorbar == "sem":
+                        error = group.groupby([x_att])[y_att].sem().values
+                        lo_error = y_data - error
+                        hi_error = y_data + error
+                all_data.append({'name': name, 'x': x_data, 'y': y_data, 'lo_error': lo_error, 'hi_error': hi_error})
+            print(f"{all_data=}")
+            self._data_for_display = all_data
         else:
-            self._profile_cache = None
+            self._data_for_display = None
+
+            #  Nitrogen Dioxide Tropospheric Column Density (10^16 / cm^2)
