@@ -64,59 +64,34 @@ class PointSelect(IpyLeafletSelectionTool):
         #print("PointSelect activated...")
 
         def on_click(event, feature, **kwargs):
-            # print("On click called...")
-            self.list_of_region_ids = []
-            # print(f"{feature=}")
             feature_id = feature["id"]  # This is the name of features in our geodata
-            # List of region_ids should start with the current subset (how to get this?)
-            #active_subset = self.viewer.toolbar_active_subset.selected
-            #self.list_of_region_ids.append(int(feature_id))
-            #self.list_of_region_ids = list(set(self.list_of_region_ids))
-            # print(f"List of region ids to draw... {self.list_of_region_ids}")
-            # In this case we are creating CategorySubsetStates
-            # from the names of the selected regions. This is very
-            # specific to the TEMPO data.
 
-            # To make it not hard-coded we would need an attribute
-            # in the mapviewer that was the select_att
-            category_name = self.viewer.state.select_att.label
-            region_name = feature["properties"][category_name]
-            roi = CategoricalROI([region_name, category_name])
-            new_subset_state = CategoricalROISubsetState(att=self.viewer.state.select_att, roi=roi)
+            try:
+                coord = feature["geometry"]["coordinates"]
+                new_subset_states = []
+                # Loop through MultiPolygon types
+                for region in coord:
+                    lons = []
+                    lats = []
+                    for k in np.squeeze(region):
+                        lons.append(k[0])
+                        lats.append(k[1])
+                    roi = PolygonalROI(vx=lons, vy=lats)
+                    new_subset_state = RoiSubsetState(
+                        xatt=self.viewer.state.lon_att,
+                        yatt=self.viewer.state.lat_att,
+                        roi=roi,
+                    )
+                    new_subset_states.append(new_subset_state)
+                if len(new_subset_states) == 1:
+                    final_subset_state = new_subset_states[0]
+                else:
+                    final_subset_state = MultiOrState(new_subset_states)
+                self.viewer.apply_subset_state(final_subset_state, override_mode=None)
 
-            # This is the standard way to add a subset -- it enables
-            # undo, and deals with the subset_mode thing correctly, 
-            # but it does not allow us to set the label. Ultimately
-            # we probably want to use this and then figure out a way to set the
-            # labels afterwards. Boolean logic on subsets make naming a subset
-            # complicated anyway.
-
-            self.viewer.apply_subset_state(new_subset_state, override_mode=None)
-
-            # This is the manual way to set up a new subset group, and the only real problem
-            # is that it does not adjust the subset_mode
-            #self.viewer.session.data_collection.new_subset_group(region_name, new_subset_state)
-            #from glue.core.edit_subset_mode import ReplaceMode
-            ## Switch subset_mode to show the new subset
-            #self.viewer.session.edit_subset_mode = ReplaceMode#self.viewer.session.data_collection.subset_groups[-1]
-
-            #self.viewer.session.edit_subset_mode._edit_mode = self.viewer.session.data_collection.subset_groups[-1]
-
-
-            # Now this renaming happens AFTER the subset is added to all the other viewers
-            # That's mostly fine, as it should (I think) trigger a subset_changed message
-            for subset_group in self.viewer.session.data_collection.subset_groups:
-                # The memory address of the SubsetState is not preserved by
-                # apply_subset_state, so we compare the ROI in order to apply
-                # the nice label to the subset group.
-                #print(f"{subset_group.subset_state.roi.categories=}")
-                #print(f"{new_subset_state.roi.categories=}")
-                #print(f"{subset_group.subset_state.att=}")
-                #print(f"{new_subset_state.att=}")
-
-                if np.array_equal(subset_group.subset_state.roi.categories, new_subset_state.roi.categories):
-                    subset_group.label = region_name
-                    subset_group.style.alpha = 0.9
+            except OSError:
+                print("Feature has no geometry defined...")
+                pass
 
         for map_layer in self.viewer.map.layers:
             # Perhaps (perhaps not) make this limited to RegionLayerArtists?
