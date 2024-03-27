@@ -148,7 +148,7 @@ class TracesLayerState(MatplotlibLayerState, HubListener):
         self.v_min = 0
         self.v_max = 1
         self.viewer_state = viewer_state
-
+        self.df =None
         self.add_callback('layer', self._on_layer_change, priority=1000)
         self.add_callback('visible', self.reset_data_for_display, priority=1000)
 
@@ -166,15 +166,23 @@ class TracesLayerState(MatplotlibLayerState, HubListener):
             if not self._layer_subset_updates_subscribed and self.layer.hub is not None:
                 self.layer.hub.subscribe(self, SubsetUpdateMessage, handler=self._on_subset_update)
                 self._layer_subset_updates_subscribed = True
-
-        self.reset_data_for_display()
+        #else:
+        #    self.reset_cache()
 
     def _on_subset_update(self, msg):
         if msg.subset is self.layer:
-            self.reset_data_for_display()
+            print(f'{msg=}')
+            #self.reset_cache()
+
+    def reset_cache(self, *args):
+        print("In reset_cache")
+        print(f"{args=}")
+        self._data_for_display = None
 
     @property
     def data_for_display(self):
+        print("Trying to get the data to display...")
+        self.reset_data_for_display()
         return self._data_for_display
 
     def reset_data_for_display(self, *args):
@@ -183,15 +191,38 @@ class TracesLayerState(MatplotlibLayerState, HubListener):
         Here, we have multiple groups so _data_for_display is 
         [{name:'group_name', x: [x0, x1, ...], y: [y0, y1, ...], lo_error: [y0lo, y1lo, ...], hi_error: [y0hi, y1hi, ...]}]
         
+        Currently this is getting called twice for a new subset,
+        but it is exiting immediately the first time, so not too expensive.
+
+        Profile viewer sets the cache (self._data_for_display) to None and then
+        simply calls this function when we try to get 
+
         """
-        print("In reset_cache")
+
+        if not self._viewer_callbacks_set:
+            #self.viewer_state.add_callback('y_att', self.reset_cache, priority=100000)
+            #self.viewer_state.add_callback('x_var', self.reset_cache, priority=100000)
+
+            self.viewer_state.add_callback('group_var', self.regroup, priority=100000)
+
+            self._viewer_callbacks_set = True
+
+        if self._data_for_display is not None:
+            print("Returning cached data")
+            return self._data_for_display
+
+        if not self.visible:
+            return
+
+        print("In reset_data_for_display")
         if not isinstance(self.layer, BaseData):
-            print("This is a subset...")
+            #print("This is a subset...")
             try:
                 region_geom = self.layer.subset_state.roi.to_polygon()
             except AttributeError:
-                self._profile_cache = None
+                self._data_for_display = None
                 return
+            print("Doing expensive calculation...")
             clip_poly = Polygon([(x, y) for x, y in zip(region_geom[0], region_geom[1])])
             center = shapely.centroid(clip_poly)
             center_lon, center_lat = center.x, center.y
@@ -206,38 +237,48 @@ class TracesLayerState(MatplotlibLayerState, HubListener):
             ##print(f"ds: {ds}")
             ds.index = ds.index.tz_localize('UTC').tz_convert(tz)
             seasons = month_to_season_lu[ds.index.month]
-            df = pd.DataFrame({'Day': ds.index.date,
+            self.df = pd.DataFrame({'Day': ds.index.date,
                                'Local Hour': ds.index.hour,
                                'vertical_column_troposphere': ds.values, 
                                'Day of Week': ds.index.weekday,
                                'Season': seasons})
-            df['Day Type'] = df.apply(weekend_or_holiday, axis=1)
+            self.df['Day Type'] = self.df.apply(weekend_or_holiday, axis=1)
             #print(f"df: {df}")
-
-            dfg = df.groupby([self.viewer_state.group_var])
-            print(f"{dfg=}")
-            self.num_groups = len(dfg)
-            all_data = []
-            for name, group in dfg:
-                y_att = self.viewer_state.y_att.label
-                x_att = self.viewer_state.x_var
-
-                data = group.groupby([x_att])[y_att].aggregate(self.viewer_state.estimator)
-                x_data = data.index.values
-                y_data = data.values
-                if self.viewer_state.errorbar is not None:
-                    if self.viewer_state.errorbar == "std":
-                        error = group.groupby([x_att])[y_att].std().values
-                        lo_error = y_data - error
-                        hi_error = y_data + error
-                    elif self._viewer_state.errorbar == "sem":
-                        error = group.groupby([x_att])[y_att].sem().values
-                        lo_error = y_data - error
-                        hi_error = y_data + error
-                all_data.append({'name': name, 'x': x_data, 'y': y_data, 'lo_error': lo_error, 'hi_error': hi_error})
-            print(f"{all_data=}")
-            self._data_for_display = all_data
+            # A separate function because sometimes we only need to regroup
+            # (specifically when only group_var changes)
+            self.regroup()
+            #print(f"{all_data=}")
         else:
             self._data_for_display = None
 
             #  Nitrogen Dioxide Tropospheric Column Density (10^16 / cm^2)
+
+    def regroup(self, *args):
+        if not self.visible:
+            return
+        if self.df is None:
+            return #For instance, if this is a Data layer we have not visualized.
+
+        print("In regroup")
+        dfg = self.df.groupby([self.viewer_state.group_var])
+        #print(f"{dfg=}")
+        self.num_groups = len(dfg)
+        all_data = []
+        for name, group in dfg:
+            y_att = self.viewer_state.y_att.label
+            x_att = self.viewer_state.x_var
+
+            data = group.groupby([x_att])[y_att].aggregate(self.viewer_state.estimator)
+            x_data = data.index.values
+            y_data = data.values
+            if self.viewer_state.errorbar is not None:
+                if self.viewer_state.errorbar == "std":
+                    error = group.groupby([x_att])[y_att].std().values
+                    lo_error = y_data - error
+                    hi_error = y_data + error
+                elif self._viewer_state.errorbar == "sem":
+                    error = group.groupby([x_att])[y_att].sem().values
+                    lo_error = y_data - error
+                    hi_error = y_data + error
+            all_data.append({'name': name, 'x': x_data, 'y': y_data, 'lo_error': lo_error, 'hi_error': hi_error})
+        self._data_for_display = all_data

@@ -21,8 +21,8 @@ import sys
 from glue.utils import defer_draw
 __all__ = ['TracesLayerArtist']
 
-USE_GL = False
-# By adding group_att to both VISUAL_PROPERTIES and DATA_PROPERTIES, we automatically run
+USE_GL = False # If True, the subsets show up as too faint with baseline alpha. Otherwise it seems to work now.
+# By adding group_att to both VISUAL_PROPERTIES and DATA_PROPERTIES, we update the traces when the group_att changes
 CMAP_PROPERTIES.add('group_var')
 DATA_PROPERTIES.add('group_var')
 
@@ -45,27 +45,27 @@ class TracesLayerArtist(LayerArtist):
         # lines
         self.lines_cls = LinesGL if USE_GL else bqplot.Lines
         
-        self.line_marks = [self.lines_cls(scales=self.view.scales, x=[0.], y=[0.])]
+        self.line_marks = [self.lines_cls(scales=self.view.scales, x=[0.], y=[0.], display_legend=False)]
         for line_mark in self.line_marks:
             line_mark.colors = [color2hex(self.state.color)]
             line_mark.opacities = [self.state.alpha]
-        self.error_marks = [self.lines_cls(scales=self.view.scales, x=[0.], y=[0.])]
+        self.error_marks = [self.lines_cls(scales=self.view.scales, x=[0.], y=[0.], display_legend=False)]
         self.view.figure.marks = list(self.view.figure.marks) + self.line_marks + self.error_marks
 
     def _update_data(self):
-        print("In _update_data")
+        #print("In _update_data")
         if isinstance(self.layer, Data):
             return
         
-        if self.state.data_for_display is None:
-            print("No data for display")
-            self.state.reset_data_for_display()
+        if self.state._data_for_display is None:
+            #print("No data for display")
+            #self.state.reset_data_for_display()
             return
 
         if self._viewer_state.group_var is not None:
 
             data_lines = self.state.data_for_display
-            print(f"{data_lines=}")
+            #print(f"{data_lines=}")
             marks = self.view.figure.marks[:]
             for line_mark in self.line_marks+self.error_marks:
                 marks.remove(line_mark)
@@ -76,7 +76,7 @@ class TracesLayerArtist(LayerArtist):
             markers = ['circle', 'triangle-down', 'triangle-up', 'square', 'diamond', 'plus'] * 10
 
             for i, data_line in enumerate(data_lines):
-                print(f"{data_line=}")
+                #print(f"{data_line=}")
                 name = data_line['name']
                 x_data = data_line['x']
                 y_data = data_line['y']
@@ -127,7 +127,7 @@ class TracesLayerArtist(LayerArtist):
             warnings.simplefilter("ignore")
             if reset:
                 self.state.reset_cache()
-            self.state.update_profile(update_limits=False)
+            self.state.reset_data_for_display(update_limits=False)
 
     def _calculate_traces_postthread(self):
         self._update_data()
@@ -156,9 +156,6 @@ class TracesLayerArtist(LayerArtist):
                 line_mark.colors = [color2hex(self.state.color)]
             for error_mark in self.error_marks:
                 error_mark.fill_colors = [color2hex(self.state.color)]
-        #if force or "linewidth" in changed:
-        #    for line_mark in self.line_marks:
-        #        line_mark.stroke_width = self.state.linewidth
 
         for mark in [self.line_marks]:
             if mark is None:
@@ -182,7 +179,6 @@ class TracesLayerArtist(LayerArtist):
 
         self.redraw()
 
-
     def _update_traces(self, force=False, **kwargs):
 
         if (self.line_marks is None or
@@ -194,9 +190,9 @@ class TracesLayerArtist(LayerArtist):
         # of updated properties is up to date after this method has been called.
 
         changed = self.pop_changed_properties()
-
+        print(f"{changed=}")
         if force or len(changed & DATA_PROPERTIES) > 0:
-            self._calculate_traces(reset=force)
+            #self._calculate_traces()
             self._update_data()
             force = True
 
