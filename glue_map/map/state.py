@@ -328,7 +328,7 @@ class MapXarrayLayerState(LayerState):
     t = CallbackProperty(0)
     data_att = SelectionCallbackProperty()
 
-    color_mode = SelectionCallbackProperty(default_index=0)
+    color_mode = SelectionCallbackProperty(default_index=1)
     cmap_att = SelectionCallbackProperty()
     cmap_vmin = CallbackProperty()
     cmap_vmax = CallbackProperty()
@@ -368,7 +368,7 @@ class MapXarrayLayerState(LayerState):
         if layer is not None:
             self._on_layer_change()
 
-        self.cmap = colormaps.members[1][1]
+        self.cmap = colormaps.members[-1][1]
 
         MapXarrayLayerState.color_mode.set_choices(self, ["Fixed", "Linear"])
 

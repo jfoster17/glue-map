@@ -602,6 +602,7 @@ class MapXarrayLayerArtist(LayerArtist):
         super().__init__(
             viewer_state, layer_state=layer_state, layer=layer
         )
+
         self.layer = layer
         self.layer_id = "{0:08x}".format(random.getrandbits(32))
         self.map = map
@@ -616,6 +617,8 @@ class MapXarrayLayerArtist(LayerArtist):
             self._sliced_data = IndexedData(self.layer, indices=(self.state.t, None, None))
         else:
             self._sliced_data = None
+        self.state.add_global_callback(self.update)
+
         #  In theory we want something like this to link the opacity of the layer to the alpha of the state
         #  dlink((self.state, 'alpha'), (self.image_overlay_layer, 'opacity'), lambda x: [x])
 
@@ -626,7 +629,7 @@ class MapXarrayLayerArtist(LayerArtist):
     def redraw(self):
         pass
 
-    def update(self):
+    def update(self, **kwargs):
         if (
             self.map is None
             or self.state.layer is None
@@ -693,16 +696,16 @@ class MapXarrayLayerArtist(LayerArtist):
                 self.norm_func = normalize_over_full_data
 
 
-        if force or any(x in changed for x in ["lon_att", "lat_att", "t"]):
+        if force or any(x in changed for x in ["lon_att", "lat_att", "t", "cmap"]):
             if isinstance(self.layer, Data):
                 self._sliced_data.indices = (self.state.t, None, None)
             # Check if this is a data or a subset layer
                 data = self._sliced_data.get_data(self.state.data_att)
                 #print(f"data loaded {time()}")
                 #print(f"Data shape: {data.shape}")
-
+                #print(f"{self.state.cmap=}")
                 imgurl = make_imageoverlay(data, self.bounds, self.norm_func,
-                                            proj_refinement=1, colormap='coolwarm')
+                                            proj_refinement=1, colormap=self.state.cmap)
                 #print(f"imgrul made {time()}")
 
                 self.image_overlay_layer.url = imgurl

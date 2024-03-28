@@ -58,8 +58,8 @@ class TracesViewerState(MatplotlibDataViewerState):
     group_var = DDSCProperty(docstring='Data-points will be grouped by this attribute so that each unique value of group_var will produce a single line.')
 
     x_var = DDSCProperty(docstring='Variable to plot on the x-axis')
-    estimator = DDSCProperty(default_index = 0, docstring="Function to use to aggregate data points in each group")
-    errorbar = DDSCProperty(default_index = 1, docstring="Whether to show error bars [None, 'std', 'sem', 'pi', 'ci']")
+    estimator = DDSCProperty(default_index= 0, docstring="Function to use to aggregate data points in each group")
+    errorbar = DDSCProperty(default_index= 1, docstring="Whether to show error bars [None, 'std', 'sem', 'pi', 'ci']")
 
     def __init__(self, **kwargs):
         super().__init__()
