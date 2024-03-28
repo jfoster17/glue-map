@@ -1,21 +1,12 @@
-from glue_jupyter.bqplot.scatter.layer_artist import BqplotScatterLayerArtist
-from glue_jupyter.bqplot.profile.layer_artist import BqplotProfileLayerArtist
 from .state import TracesLayerState
-import numpy as np
 from glue.core.data import Data
 from glue.core.exceptions import IncompatibleAttribute
 from glue.utils import color2hex
-from glue.utils import datetime64_to_mpl, ensure_numerical
-import pandas as pd
 import bqplot
-from glue_jupyter.utils import float_or_none
-from glue_jupyter.utils import colormap_to_hexlist
-from glue.viewers.scatter.layer_artist import CMAP_PROPERTIES, MARKER_PROPERTIES, DATA_PROPERTIES, VISUAL_PROPERTIES
-from glue_jupyter.bqplot.compatibility import ScatterGL, LinesGL
-from glue.viewers.scatter.state import ScatterLayerState
+from glue.viewers.scatter.layer_artist import CMAP_PROPERTIES, DATA_PROPERTIES, VISUAL_PROPERTIES
+from glue_jupyter.bqplot.compatibility import LinesGL
 import warnings
 from glue.viewers.common.layer_artist import LayerArtist
-from glue.core.exceptions import IncompatibleAttribute, IncompatibleDataException
 from glue.core import BaseData
 import sys
 from glue.utils import defer_draw
@@ -147,9 +138,6 @@ class TracesLayerArtist(LayerArtist):
 
         if not self.enabled:
             return
-
-        # bqplot only supports these for linestyles
-        linestyles = ['solid', 'dashed', 'dotted', 'dash_dotted'] * 10
 
         if force or "color" in changed:
             for line_mark in self.line_marks:

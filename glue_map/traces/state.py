@@ -120,7 +120,7 @@ class TracesViewerState(MatplotlibDataViewerState):
         if self.x_var == 'Local Hour':
             self.x_min = 0
             self.x_max = 24
-        else: # Temporary default. FIXME
+        else:  # Temporary default. FIXME
             self.x_min = 0
             self.x_max = 24
 
