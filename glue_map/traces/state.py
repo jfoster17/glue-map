@@ -148,7 +148,7 @@ class TracesLayerState(MatplotlibLayerState, HubListener):
         self.v_min = 0
         self.v_max = 1
         self.viewer_state = viewer_state
-        self.df =None
+        self.df = None
         self.add_callback('layer', self._on_layer_change, priority=1000)
         self.add_callback('visible', self.reset_data_for_display, priority=1000)
 
@@ -171,17 +171,17 @@ class TracesLayerState(MatplotlibLayerState, HubListener):
 
     def _on_subset_update(self, msg):
         if msg.subset is self.layer:
-            print(f'{msg=}')
-            #self.reset_cache()
+            #print(f'{msg=}')
+            self.reset_cache()
 
     def reset_cache(self, *args):
-        print("In reset_cache")
-        print(f"{args=}")
+        #print("In reset_cache")
+        #print(f"{args=}")
         self._data_for_display = None
 
     @property
     def data_for_display(self):
-        print("Trying to get the data to display...")
+        #print("Trying to get the data to display...")
         self.reset_data_for_display()
         return self._data_for_display
 
@@ -208,13 +208,13 @@ class TracesLayerState(MatplotlibLayerState, HubListener):
             self._viewer_callbacks_set = True
 
         if self._data_for_display is not None:
-            print("Returning cached data")
+            #print("Returning cached data")
             return self._data_for_display
 
         if not self.visible:
             return
 
-        print("In reset_data_for_display")
+        #print("In reset_data_for_display")
         if not isinstance(self.layer, BaseData):
             #print("This is a subset...")
             try:
@@ -222,7 +222,7 @@ class TracesLayerState(MatplotlibLayerState, HubListener):
             except AttributeError:
                 self._data_for_display = None
                 return
-            print("Doing expensive calculation...")
+            #print("Doing expensive calculation...")
             clip_poly = Polygon([(x, y) for x, y in zip(region_geom[0], region_geom[1])])
             center = shapely.centroid(clip_poly)
             center_lon, center_lat = center.x, center.y
@@ -259,7 +259,7 @@ class TracesLayerState(MatplotlibLayerState, HubListener):
         if self.df is None:
             return #For instance, if this is a Data layer we have not visualized.
 
-        print("In regroup")
+        #print("In regroup")
         dfg = self.df.groupby([self.viewer_state.group_var])
         #print(f"{dfg=}")
         self.num_groups = len(dfg)

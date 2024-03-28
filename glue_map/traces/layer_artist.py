@@ -190,7 +190,7 @@ class TracesLayerArtist(LayerArtist):
         # of updated properties is up to date after this method has been called.
 
         changed = self.pop_changed_properties()
-        print(f"{changed=}")
+        #print(f"{changed=}")
         if force or len(changed & DATA_PROPERTIES) > 0:
             #self._calculate_traces()
             self._update_data()
