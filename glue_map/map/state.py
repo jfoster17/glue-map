@@ -10,6 +10,7 @@ from glue.core.state_objects import StateAttributeLimitsHelper
 from glue.core.subset import Subset
 from glue.viewers.common.state import LayerState, ViewerState
 from ipyleaflet import basemaps, TileLayer
+from glue.core import BaseData
 
 # my_logger = logging.getLogger("")
 # my_logger.setLevel(logging.WARNING)
@@ -156,6 +157,11 @@ class MapRegionLayerState(LayerState):
                 self.cmap_att_helper.set_multiple_data([])
             else:
                 self.cmap_att_helper.set_multiple_data([self.layer])
+        if not isinstance(layer, BaseData):
+            self.fill = True
+        else:
+            self.fill = False
+            #self.name = f"{self.name} {(self.layer.data.label)}"
 
     def _layer_changed(self):
         """

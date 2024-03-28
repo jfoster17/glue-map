@@ -392,7 +392,8 @@ class MapRegionLayerArtist(LayerArtist):
             else:
                 self.fillOpacity = self.state.alpha
         else:
-            self.fillOpacity = self.state.alpha
+            self.fillOpacity = 0
+            #self.fillOpacity = self.state.alpha
 
         self.map_layer = GeoJSON(
             data=self._regions,
@@ -411,7 +412,7 @@ class MapRegionLayerArtist(LayerArtist):
         link((self.state, "visible"), (self.map_layer, "visible"))
 
         self.state.add_global_callback(self._update_presentation)
-        # self._viewer_state.add_global_callback(self._update_presentation)
+        self._viewer_state.add_global_callback(self._update_presentation)
 
     def clear(self):
         if self.map_layer is not None:
@@ -495,6 +496,7 @@ class MapRegionLayerArtist(LayerArtist):
             self._regions = json.loads(gdf.to_json())
             self.map_layer.data = self._regions
 
+
         if force or any(
             x in changed
             for x in [
@@ -568,15 +570,14 @@ class MapRegionLayerArtist(LayerArtist):
         #    if self.state.color is not None and self.state.color_mode == 'Fixed':
         #        self.map_layer.style = {'color':self.state.color, 'fillColor':self.state.color}
 
-        if force or "alpha" in changed:
-            if self.state.fill is not None:
-                if self.state.fill is False:
-                    self.fillOpacity = 0
-                else:
-                    self.fillOpacity = self.state.alpha
+        if force or ("alpha" in changed) or ("fill" in changed):
+            #if self.state.fill is not None:
+            if self.state.fill is False:
+                self.fillOpacity = 0
             else:
                 self.fillOpacity = self.state.alpha
-
+            #else:
+                #self.fillOpacity = self.state.alpha
 
             if self.state.alpha is not None:
                 self.map_layer.style = {

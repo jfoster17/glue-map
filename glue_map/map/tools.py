@@ -167,7 +167,7 @@ class RectangleSelect(IpyLeafletSelectionTool):
                     bounds=(self.start_coords, self.end_coords),
                     weight=1,
                     fill_opacity=0.5,
-                    Edash_array="5, 5",
+                    dash_array="5, 5",
                     color="purple",
                     fill_color="purple",
                 )
