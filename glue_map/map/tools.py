@@ -123,6 +123,8 @@ class RectangleSelect(IpyLeafletSelectionTool):
         super(RectangleSelect, self).__init__(viewer)
         self.start_coords = None
         self.end_coords = None
+        self.show_subset = False
+
 
     def activate(self):
         """ """
@@ -131,6 +133,9 @@ class RectangleSelect(IpyLeafletSelectionTool):
         def map_interaction(**kwargs):
             # print(kwargs)
             if kwargs["type"] == "mousedown":
+                if self.show_subset:
+                    self.viewer.map.remove_layer(self.rect)
+                    self.show_subset = False
                 #print(f'mousedown {kwargs["coordinates"]}')
                 self.start_coords = kwargs["coordinates"]
                 self.rect = Rectangle(
@@ -156,9 +161,24 @@ class RectangleSelect(IpyLeafletSelectionTool):
                 #print("Applying ROI...")
                 self.viewer.apply_roi(roi)
 
+                #time.sleep(0.1)
+
+                new_rect = Rectangle(
+                    bounds=(self.start_coords, self.end_coords),
+                    weight=1,
+                    fill_opacity=0.5,
+                    Edash_array="5, 5",
+                    color="purple",
+                    fill_color="purple",
+                )
                 self.start_coords = None
-                time.sleep(0.1)
-                self.viewer.map.remove_layer(self.rect)
+
+                self.viewer.map.substitute_layer(self.rect, new_rect)
+                self.show_subset = True
+                self.rect = new_rect
+                #self.rect.color = "purple"
+                #self.viewer.map.remove_layer(self.rect)
+                self.end_coords = None
             elif kwargs["type"] == "mousemove" and self.start_coords:
                 new_rect = Rectangle(
                     bounds=(self.start_coords, kwargs["coordinates"]),
