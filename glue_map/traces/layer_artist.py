@@ -63,7 +63,7 @@ class TracesLayerArtist(LayerArtist):
             self.line_marks = []
             self.error_marks = []
 
-            linestyles = ['solid', 'dashed', 'dotted', 'dash_dotted'] * 10
+            linestyles = ['solid', 'dotted', 'dashed', 'dash_dotted'] * 10
             markers = ['circle', 'triangle-down', 'triangle-up', 'square', 'diamond', 'plus'] * 10
 
             for i, data_line in enumerate(data_lines):
