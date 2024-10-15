@@ -8,7 +8,7 @@ from glue.core.data import Data
 from glue.utils import color2hex, ensure_numerical
 from glue.viewers.common.layer_artist import LayerArtist
 from glue_jupyter.link import link
-from ipyleaflet.leaflet import CircleMarker, GeoJSON, Heatmap, LayerGroup, ImageOverlay
+from ipyleaflet import CircleMarker, GeoJSON, Heatmap, LayerGroup, ImageOverlay, ImageService
 import matplotlib.pyplot as plt
 import PIL
 import PIL.Image
@@ -20,15 +20,15 @@ from rasterio.warp import reproject, Resampling
 from time import time
 from glue.core.data_derived import IndexedData
 
-from ..data import GeoPandasTranslator
-from .state import MapPointsLayerState, MapRegionLayerState, MapXarrayLayerState
+from ..data import GeoPandasTranslator, RemoteGeoData_ArcGISImageServer
+from .state import MapPointsLayerState, MapRegionLayerState, MapXarrayLayerState, MapImageServerLayerState
 # from glue.logger import logger
 
 
 # my_logger = logging.getLogger("")
 # my_logger.setLevel(logging.WARNING)
 
-__all__ = ["MapRegionLayerArtist", "MapPointsLayerArtist","MapXarrayLayerArtist"]
+__all__ = ["MapRegionLayerArtist", "MapPointsLayerArtist", "MapXarrayLayerArtist", "MapImageServerLayerArtist"]
 
 
 RESET_TABLE_PROPERTIES = (
@@ -41,6 +41,61 @@ RESET_TABLE_PROPERTIES = (
     "size_mode",
     "color_mode",
 )
+
+
+class MapImageServerLayerArtist(LayerArtist):
+    """
+    Display an image from an Esri ImageServer
+    """
+    _layer_state_cls = MapImageServerLayerState
+    _removed = False
+
+    def __init__(self, viewer_state, map=None, layer_state=None, layer=None):
+        super().__init__(
+            viewer_state, layer_state=layer_state, layer=layer
+        )
+        self.layer = layer
+        self.layer_id = "{0:08x}".format(random.getrandbits(32))
+        self.map = map
+        self.zorder = self.state.zorder
+        #self.visible = self.state.visible 
+        self.imageserver_layer = ImageService()
+        self.map.add(self.imageserver_layer)
+        self.state.add_global_callback(self.update)
+
+    def update(self, **kwargs):
+        if (
+            self.map is None
+            or self.state.layer is None
+            or self._viewer_state.lat_att is None
+            or self._viewer_state.lon_att is None
+        ):
+            return
+        self._update_presentation(force=True)
+
+    def _update_presentation(self, force=False, **kwargs):
+        """ """
+        if self._removed:
+            return
+
+        changed = set() if force else self.pop_changed_properties()
+
+        if self.visible is False:
+            self.clear()
+
+        if force or any(x in changed for x in ["lon_att", "lat_att"]):
+            if isinstance(self.layer, RemoteGeoData_ArcGISImageServer):
+                self.imageserver_layer.url = self.layer.get_image_url(self.state.data_att)
+                self.imageserver_layer.time = self.layer.get_time(self.state.timestep, 1715733708000)
+                self.imageserver_layer.rendering_rule = self.layer.get_rendering_rule(self.state.colorscale)
+                self.imageserver_layer.opacity = self.state.opacity
+            else:
+                # Do something for a subset
+                pass
+
+        self.imageserver_layer.visible = self.state.visible
+
+        self.enable()
 
 
 class MapPointsLayerArtist(LayerArtist):
@@ -719,6 +774,9 @@ class MapXarrayLayerArtist(LayerArtist):
         self.image_overlay_layer.visible = self.state.visible
 
         #self.enable()
+
+
+
 
 
 def project_array(array, bounds, refinement=2):

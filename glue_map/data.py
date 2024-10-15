@@ -1,18 +1,281 @@
 import geopandas
 from glue.config import data_translator
-from glue.core.component_id import ComponentIDList
-from glue.core.data import Data
+from glue.core.component_id import ComponentIDList, ComponentIDDict, ComponentID
+from glue.core.data import Data, BaseCartesianData
 from glue.core.subset import Subset
 from glue.core.coordinates import Coordinates
 from datetime import datetime
 import numpy as np
 import xarray as xr
 import glob
+import requests
+import pandas as pd
 
 import warnings
 warnings.filterwarnings('ignore') # setting ignore as a parameter
 
-__all__ = ["InvalidGeoData", "GeoRegionData", "GeoPandasTranslator"]
+__all__ = ["InvalidGeoData", "GeoRegionData", "GeoPandasTranslator", "GriddedGeoData", "RemoteGeoData_ArcGISImageServer"]
+
+def convert_from_milliseconds(milliseconds_since_epoch):
+    """Converts milliseconds since epoch to a date-time string in 'YYYY-MM-DD HH:MM:SS' format."""
+    dt = datetime.fromtimestamp(milliseconds_since_epoch / 1000)
+    date_time_str = dt.strftime('%Y-%m-%d %H:%M:%S')
+    return date_time_str
+
+def convert_to_milliseconds(date_time_str):
+    """Converts a date-time string in 'YYYY-MM-DD HH:MM:SS' format to milliseconds since epoch."""
+    dt = datetime.strptime(date_time_str, '%Y-%m-%d %H:%M:%S')
+    milliseconds_since_epoch = int(dt.timestamp() * 1000)
+    return milliseconds_since_epoch
+
+
+class GriddedGeoData(BaseCartesianData):
+    """
+    A glue Data class for regularly gridded geospatial data.
+
+    A GriddedGeoData object is 3D with two spatial dimensions and one
+    temporal dimension. The spatial dimensions are typically longitude
+    and latitude.
+    """
+
+    def get_temporal_data(self, cid, region=None, agg_function='mean'):
+        """
+        Given a region over the spatial dimensions, apply agg_function
+        to the data within that region and return the result as a
+        1D array. We use this in the TracesViewer to plot time series
+        of data within a region. The main differences from the generic
+        get_data() method are that we are aggregating over the spatial
+        region (and thus returning a 1D array), that region is a
+        Shapely object (rather than a view).
+        
+        This is a method that needs to be implemented by
+        subclasses.
+
+        Parameters
+        ----------
+        cid : :class:`~glue.core.component_id.ComponentID`
+            The component ID to use when
+        region : :class:`~shapely.geometry.base.BaseGeometry`
+            The region over which to aggregate the data.
+        agg_function : {'mean', 'median', 'sum', 'std', 'min', 'max'}
+            The aggregation function to apply to the data within the region.
+
+        Returns
+        -------
+        temporal_data : :class:`~numpy.ndarray`
+            The actual temporal_data along with the time axis.
+        """
+        raise NotImplementedError()
+
+    def get_image_url(self, cid, time_index=0):
+        """
+        Given a time_index, return a URL where an image of that
+        data can be retrieved as a PNG for use in
+        ImageOverlay. We use this in the MapViewer to display a
+        snapshot of the data at a given time.
+
+        This is a method that needs to be implemented by
+        subclasses.
+
+        Parameters
+        ----------
+        cid : :class:`~glue.core.component_id.ComponentID`
+            The component ID to use when
+        time_index : int
+            The index of the time axis to use.
+
+        Returns
+        -------
+        image : :class:`~numpy.ndarray`
+            The image data.
+        """
+        raise NotImplementedError()
+
+
+class RemoteGeoData_ArcGISImageServer(BaseCartesianData):
+    """
+    A glue Data class for remote geospatial data accessed via an ArcGIS ImageService.
+
+    An ArcGIS ImageService is a web service that provides access to raster data
+    as a set of images through the `exportImage` endpoint and provides a set of
+    samples for a given region and time range through the `getSamples` endpoint.
+
+    image_service_url = "https://arcgis.asdc.larc.nasa.gov/server/rest/services/POWER/power_901_monthly_meteorology_utc/ImageServer"
+                        "https://gis.earthdata.nasa.gov/image/rest/services/C2930763263-LARC_CLOUD/TEMPO_NO2_L3_V03_HOURLY_TROPOSPHERIC_VERTICAL_COLUMN_BETA/ImageServer"
+                        "https://gis.earthdata.nasa.gov/image/rest/services/C2930763263-LARC_CLOUD/"
+
+
+    Parameters
+    ----------
+    image_service_url : str
+        The URL of the ArcGIS ImageService to access.
+
+
+    """
+
+    def __init__(self, image_service_url, name=None, **kwargs):
+        self.url = image_service_url
+        if name:
+            self.name = name
+        else:
+            self.name = image_service_url
+        # We need to set up cids for the data components
+        # and the component names for use in access functions
+        #multidimensionalInfo_url = self.url + "/multiDimensionalInfo"
+        #response = requests.get(multidimensionalInfo_url)
+        #multidimensionalInfo = response.json()
+        #main_component_vars = multidimensionalInfo["variables"]
+        #time_component_name = multidimensionalInfo["dimensions"]["name"]
+        #time_component_values = multidimensionalInfo["dimensions"]["values"]
+        super().__init__(**kwargs)
+        self.id = ComponentIDDict(self)
+        self._main_components = [ComponentID(label="TEMPO_NO2_L3_V03_HOURLY_TROPOSPHERIC_VERTICAL_COLUMN_BETA",)] #FIXME How do we get this from the ImageServer?
+
+    def get_time(self, tstart, tend):
+        """
+        Get the time range for an image from the Image Server.
+        
+        This should be a list of strings running from the start time to the end time.
+        """
+        return [tstart, tend]
+
+    def get_rendering_rule(self, colorscale):
+        """
+        Get the rendering rule for an image from the Image Server.
+
+        Parameters:
+        colorscale : str
+            The name of the color scale to use for the rendering rule.
+        """
+
+        rendering_rule_standard_colorramp = {
+            "rasterFunctionArguments": {
+                "ColorrampName": f"{colorscale}",  #preset ColorRamp from ArcGIS
+                "Raster": {
+                    "rasterFunctionArguments": {
+                        "StretchType": 5,
+                        "Statistics": [self.compute_statistic(None, None)], # min value is 0, max value is 3e+16
+                        "DRA": False,
+                        "UseGamma": False,
+                        "Gamma": [1],
+                        "ComputeGamma": True,
+                        "Min": 0,
+                        "Max": 255
+                    },
+                    "rasterFunction": "Stretch",
+                    "outputPixelType": "U64", # must coincide with parameter's pixel type
+                    "variableName": "Raster"
+                }
+            },
+            "rasterFunction": "Colormap",
+            "variableName": "Raster"
+        }
+        return rendering_rule_standard_colorramp
+
+    def translate_region(self, region):
+        """
+        Translate a Shaeply region to an esriGeometryPolygon string.
+        """
+        if region is None:
+            return None
+        if region.geom_type == 'Polygon':
+            return f'{{"rings":[{list(region.exterior.coords)}],"spatialReference":{{"wkid":4326}}}}'
+        elif region.geom_type == 'MultiPolygon':
+            return f'{{"rings":[{[list(p.exterior.coords) for p in region]}],"spatialReference":{{"wkid":4326}}}}'
+        else:
+            raise ValueError("Region must be a Polygon or MultiPolygon")
+
+    def get_temporal_data(self, cid, start_time, end_time, region=None, agg_function='mean'):
+        """
+        Parameters
+        ----------
+        cid : :class:`~glue.core.component_id.ComponentID`
+            The component ID to use when getting the temporal data. The label
+            of this component should be the name of the variable in the ArcGIS ImageServer.
+        start_time : str
+            The start time in 'YYYY-MM-DD HH:MM:SS' format (UTC).
+        end_time : str
+            The end time in 'YYYY-MM-DD HH:MM:SS' format (UTC).
+
+        """
+        start_time_ms = convert_to_milliseconds(start_time)
+        end_time_ms = convert_to_milliseconds(end_time)
+        variable_name = cid.label
+        esri_region = self.translate_region(region)
+        params = {
+            "geometry": f"{esri_region}",
+            "geometryType": "esriGeometryPolygon",
+            "sampleDistance": "",
+            "sampleCount": "",
+            "mosaicRule": f'{{"multidimensionalDefinition":[{{"variableName":"{variable_name}"}}]}}',
+            "pixelSize": "",
+            "returnFirstValueOnly": "false",
+            "interpolation": "RSP_BilinearInterpolation",
+            "outFields": "",
+            "sliceId": "",
+            "time": f"{start_time_ms},{end_time_ms}",
+            "f": "pjson"
+        }
+
+        getSamples_url = self.url + "/getSamples"
+        response = requests.post(getSamples_url, params=params)
+        data = response.json()
+
+        samples = [{
+            "StdTime": sample["attributes"]["StdTime"],
+            variable_name: float(sample["attributes"][variable_name])
+        } for sample in data["samples"] if "attributes" in sample]
+
+        df = pd.DataFrame(samples)
+
+        # Convert StdTime from Unix timestamp (milliseconds) to datetime
+        df['StdTime'] = pd.to_datetime(df['StdTime'], unit='ms')
+
+    def get_image_url(self, cid):
+        """
+        If we call this from the MapViewer we will be calling the
+        actual cid to display, so we will have the name directly
+
+        What happens with exportImage if we have a larger time range?
+
+        Parameters
+        ----------
+        cid : :class:`~glue.core.component_id.ComponentID`
+            The component ID to visualize. The label of this component
+            should be the name of the variable in the ArcGIS ImageServer.
+
+        """
+        exportImage_Url = self.url + f"{cid.label}"+"/ImageServer"
+        return exportImage_Url
+
+    def compute_histogram(self, cids, weights=None, range=None, bins=None, log=None, subset_state=None):
+        pass
+
+    def compute_statistic(self, statistic, cid, subset_state=None, axis=None, finite=True, positive=False, percentile=None, view=None, random_subset=None):
+        """
+        Get a statistic for a given component ID, which we can do by calling out to the
+        ImageServer.
+        """
+        stats = [0, 30000000000000000, 910863682171422.1, 9474291611234248] # FIXME
+        return stats
+
+    @property
+    def label(self):
+        return self.name
+
+    def get_kind(self, cid):
+        return 'numerical'
+
+    def get_mask(self, subset_state):
+        pass
+
+    @property
+    def main_components(self):
+        return self._main_components
+
+    @property
+    def shape(self):
+        return (1, )
 
 
 def load_tempo_data(directory, quality_flag='high', sample=False, time_to_int=False):
@@ -58,6 +321,7 @@ def load_tempo_data(directory, quality_flag='high', sample=False, time_to_int=Fa
 
 class InvalidGeoData(Exception):
     pass
+
 
 class XarrayCoordinates(Coordinates):
     """

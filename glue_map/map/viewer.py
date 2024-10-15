@@ -10,11 +10,12 @@ from glue_jupyter.view import IPyWidgetView
 from glue_jupyter.widgets import Color, Size
 from ipywidgets import VBox
 
-from .layer_artist import MapPointsLayerArtist, MapRegionLayerArtist, MapXarrayLayerArtist
+from .layer_artist import MapPointsLayerArtist, MapRegionLayerArtist, MapXarrayLayerArtist, MapImageServerLayerArtist
 from .state import MapViewerState
 from .state_widgets.viewer_map import MapViewerStateWidget
 from .state_widgets.layer_map import MapLayerStateWidget
 from .utils import get_geom_type
+from ..data import RemoteGeoData_ArcGISImageServer
 
 __all__ = ["IPyLeafletMapViewer"]
 
@@ -129,6 +130,24 @@ class XarrayLayerStateWidget(VBox):
         super().__init__([self.color_widgets, self.widget_alpha])
 
 
+class ImageServerLayerStateWidget(VBox):
+    def __init__(self, layer_state):
+        self.state = layer_state
+        #self.color_widgets = Color(state=self.state)
+        self.widget_opacity = ipywidgets.FloatSlider(
+            description="opacity", min=0, max=1, value=self.state.opacity
+        )
+        link((self.state, "opacity"), (self.widget_opacity, "value"))
+
+        colorscape_options = ['Viridis', 'Magma', 'Inferno', 'Plasma']
+        self.widget_colorscale = ipywidgets.Dropdown(
+            options=colorscape_options, description="Colorscape"
+        )
+        link((self.state, "colorscale"), (self.widget_colorscale, "value"))
+
+        super().__init__([self.widget_opacity, self.widget_colorscale])
+
+
 class IPyLeafletMapViewer(IPyWidgetView):
     """
     A glue viewer to show an `ipyleaflet` Map viewer with data.
@@ -150,6 +169,7 @@ class IPyLeafletMapViewer(IPyWidgetView):
         MapRegionLayerArtist: RegionLayerStateWidget,  # Do our own RegionLayerStateWidget
         MapPointsLayerArtist: PointsLayerStateWidget,
         MapXarrayLayerArtist: XarrayLayerStateWidget,
+        MapImageServerLayerArtist: ImageServerLayerStateWidget,
 
     }
 
@@ -180,7 +200,9 @@ class IPyLeafletMapViewer(IPyWidgetView):
         return cls(self.map, self.state, layer=layer, layer_state=layer_state)
 
     def get_data_layer_artist(self, layer=None, layer_state=None):
-        if get_geom_type(layer) == "regions":
+        if isinstance(layer, RemoteGeoData_ArcGISImageServer):
+            cls = MapImageServerLayerArtist
+        elif get_geom_type(layer) == "regions":
             cls = MapRegionLayerArtist
         elif get_geom_type(layer) == "points":
             cls = MapPointsLayerArtist

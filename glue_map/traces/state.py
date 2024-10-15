@@ -195,7 +195,7 @@ class TracesLayerState(MatplotlibLayerState, HubListener):
         but it is exiting immediately the first time, so not too expensive.
 
         Profile viewer sets the cache (self._data_for_display) to None and then
-        simply calls this function when we try to get 
+        simply calls this function when we try to get the data to display.
 
         """
 

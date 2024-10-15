@@ -418,3 +418,43 @@ class MapXarrayLayerState(LayerState):
     @viewer_state.setter
     def viewer_state(self, viewer_state):
         self._viewer_state = viewer_state
+
+
+class MapImageServerLayerState(LayerState):
+
+    data_att = SelectionCallbackProperty()
+
+    layer = CallbackProperty()
+    timestep = CallbackProperty(1715683263000)
+
+    colorscale = CallbackProperty("Viridis")  # This gets passed into renderingRule by the custom Data object
+    opacity = CallbackProperty(1)  # Since we are not currently inheriting from MatplotlibLayerState, we need to have this.
+
+    def __init__(self, layer=None, **kwargs):
+        super().__init__(layer=layer)
+
+        self.data_att_helper = ComponentIDComboHelper(
+            self, "data_att", numeric=True, categorical=False
+        )
+
+        if layer is not None:
+            self._update_data_attribute()
+
+    def _update_data_attribute(self, *args):
+        if self.layer is not None:
+            self.data_att_helper.set_multiple_data([self.layer])
+            self.data_att = self.layer.main_components[0]
+
+    def _on_layer_change(self, layer=None):
+        if self.layer is None:
+            self.data_att_helper.set_multiple_data([])
+        else:
+            self._update_data_attribute()
+
+    @property
+    def viewer_state(self):
+        return self._viewer_state
+
+    @viewer_state.setter
+    def viewer_state(self, viewer_state):
+        self._viewer_state = viewer_state
