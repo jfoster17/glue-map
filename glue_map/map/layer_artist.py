@@ -86,7 +86,7 @@ class MapImageServerLayerArtist(LayerArtist):
         if force or any(x in changed for x in ["lon_att", "lat_att"]):
             if isinstance(self.layer, RemoteGeoData_ArcGISImageServer):
                 self.imageserver_layer.url = self.layer.get_image_url(self.state.data_att)
-                self.imageserver_layer.time = self.layer.get_time(self.state.timestep, 1715733708000)
+                self.imageserver_layer.time = self.layer.get_time(self.state.timestep, 3828417352000) # FIXME: just some large value
                 self.imageserver_layer.rendering_rule = self.layer.get_rendering_rule(self.state.colorscale)
                 self.imageserver_layer.opacity = self.state.opacity
             else:

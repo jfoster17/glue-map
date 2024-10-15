@@ -4,7 +4,7 @@ from glue.core.component_id import ComponentIDList, ComponentIDDict, ComponentID
 from glue.core.data import Data, BaseCartesianData
 from glue.core.subset import Subset
 from glue.core.coordinates import Coordinates
-from datetime import datetime
+from datetime import datetime, timedelta
 import numpy as np
 import xarray as xr
 import glob
@@ -16,11 +16,13 @@ warnings.filterwarnings('ignore') # setting ignore as a parameter
 
 __all__ = ["InvalidGeoData", "GeoRegionData", "GeoPandasTranslator", "GriddedGeoData", "RemoteGeoData_ArcGISImageServer"]
 
+
 def convert_from_milliseconds(milliseconds_since_epoch):
     """Converts milliseconds since epoch to a date-time string in 'YYYY-MM-DD HH:MM:SS' format."""
     dt = datetime.fromtimestamp(milliseconds_since_epoch / 1000)
     date_time_str = dt.strftime('%Y-%m-%d %H:%M:%S')
     return date_time_str
+
 
 def convert_to_milliseconds(date_time_str):
     """Converts a date-time string in 'YYYY-MM-DD HH:MM:SS' format to milliseconds since epoch."""
@@ -138,6 +140,35 @@ class RemoteGeoData_ArcGISImageServer(BaseCartesianData):
         This should be a list of strings running from the start time to the end time.
         """
         return [tstart, tend]
+
+    def get_time_steps(self, date):
+        """
+        Get time steps for a given (US) date.
+
+        This is very TEMPO specific.
+        """
+        params = {'f':'json'}
+        url = self.get_image_url(self._main_components[0])+"/slices"       
+        data = requests.post(url, params=params).json()
+        slice_list = data['slices']
+        time_steps = []
+        for x in slice_list:
+            time_steps.append(x['multidimensionalDefinition'][0]['values'][0])
+        time_steps = np.array(time_steps)
+
+        def get_time_steps_for_date(date):
+            """
+            Get the time steps for a given date. Because of the UTC offset this
+            wraps around to the next day.
+            """
+            input_date = datetime.strptime(date, '%Y-%m-%d')
+            next_day = input_date + timedelta(days=1)
+            start = convert_to_milliseconds(f'{input_date.strftime("%Y-%m-%d")} 05:00:00')
+            end   = convert_to_milliseconds(f'{next_day.strftime("%Y-%m-%d")} 02:00:00')
+            return (start, end)
+        
+        start, end = get_time_steps_for_date(date)
+        return time_steps[(time_steps >= start) & (time_steps <= end)]
 
     def get_rendering_rule(self, colorscale):
         """
