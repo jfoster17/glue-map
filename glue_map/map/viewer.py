@@ -1,6 +1,7 @@
 import ipyleaflet
 import ipywidgets
 from glue.core.subset import roi_to_subset_state
+from glue.core.subset import RoiSubsetState
 
 # from glue.logger import logger
 from glue.utils import color2hex
@@ -10,7 +11,9 @@ from glue_jupyter.view import IPyWidgetView
 from glue_jupyter.widgets import Color, Size
 from ipywidgets import VBox
 
-from .layer_artist import MapPointsLayerArtist, MapRegionLayerArtist, MapXarrayLayerArtist, MapImageServerLayerArtist
+from .layer_artist import (MapPointsLayerArtist, MapRegionLayerArtist,
+                           MapXarrayLayerArtist, MapImageServerLayerArtist,
+                           MapImageServerSubsetLayerArtist)
 from .state import MapViewerState
 from .state_widgets.viewer_map import MapViewerStateWidget
 from .state_widgets.layer_map import MapLayerStateWidget
@@ -170,10 +173,11 @@ class IPyLeafletMapViewer(IPyWidgetView):
         MapPointsLayerArtist: PointsLayerStateWidget,
         MapXarrayLayerArtist: XarrayLayerStateWidget,
         MapImageServerLayerArtist: ImageServerLayerStateWidget,
+        MapImageServerSubsetLayerArtist: ImageServerLayerStateWidget,
 
     }
 
-    tools = ["ipyleaflet:pointselect", "ipyleaflet:rectangleselect"]
+    tools = ["ipyleaflet:rectangleselect"]
 
     def __init__(self, session, state=None):
         # logger.debug("Creating a new Viewer...")
@@ -215,7 +219,23 @@ class IPyLeafletMapViewer(IPyWidgetView):
         return cls(self.state, map=self.map, layer=layer, layer_state=layer_state)
 
     def get_subset_layer_artist(self, layer=None, layer_state=None):
-        return self.get_data_layer_artist(layer=layer, layer_state=layer_state)
+        print(layer)
+        print(layer.data)
+
+        if isinstance(layer.data, RemoteGeoData_ArcGISImageServer):
+            cls = MapImageServerSubsetLayerArtist
+        else:
+            if get_geom_type(layer.data) == "regions":
+                cls = MapRegionLayerArtist
+            elif get_geom_type(layer.data) == "points":
+                cls = MapPointsLayerArtist
+            elif get_geom_type(layer.data) == "xarray":
+                cls = MapXarrayLayerArtist
+            else:
+                raise ValueError(
+                    f"IPyLeafletMapViewer does not know how to render the data in {layer.label}"
+                )
+        return cls(self.state, map=self.map, layer=layer, layer_state=layer_state)
 
     def apply_roi(self, roi, override_mode=None):
         #print("Inside apply_roi")
@@ -224,12 +244,17 @@ class IPyLeafletMapViewer(IPyWidgetView):
         if len(self.layers) == 0:
             return
 
+        #subset_state = RoiSubsetState(xatt=self.state.lon_att,
+        #                              yatt=self.state.lat_att,
+        #                              roi=roi)
         subset_state = roi_to_subset_state(
             roi,
             x_att=self.state.lon_att,
             y_att=self.state.lat_att,
         )
-        #print("subset_state:", subset_state)
+        print("subset_state:", subset_state)
+        print("subset_state.roi:", subset_state.roi)
+
         self.apply_subset_state(subset_state, override_mode=override_mode)
 
     @property

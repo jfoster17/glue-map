@@ -8,7 +8,7 @@ from glue.core.data import Data
 from glue.utils import color2hex, ensure_numerical
 from glue.viewers.common.layer_artist import LayerArtist
 from glue_jupyter.link import link
-from ipyleaflet import CircleMarker, GeoJSON, Heatmap, LayerGroup, ImageOverlay, ImageService
+from ipyleaflet import CircleMarker, GeoJSON, Heatmap, LayerGroup, ImageOverlay, ImageService, Polygon
 import matplotlib.pyplot as plt
 import PIL
 import PIL.Image
@@ -41,6 +41,69 @@ RESET_TABLE_PROPERTIES = (
     "size_mode",
     "color_mode",
 )
+
+
+class MapImageServerSubsetLayerArtist(LayerArtist):
+    """
+    Display a spatial(?) subset of an image from an ESRI ImageServer
+    """
+    _layer_state_cls = MapImageServerLayerState
+    _removed = False
+
+    def __init__(self, viewer_state, map=None, layer_state=None, layer=None):
+        super().__init__(
+            viewer_state, layer_state=layer_state, layer=layer
+        )
+        self.layer = layer
+        self.layer_id = "{0:08x}".format(random.getrandbits(32))
+        self.map = map
+        self.zorder = self.state.zorder
+        #self.visible = self.state.visible 
+        self.polygon_layer = Polygon(locations=[[[0, 0], [0, 0], [0, 0]]],
+                                     fill_color="blue",
+                                     fill_opacity=0.5,
+                                     weight=0)
+        self.map.add(self.polygon_layer)
+        self.state.add_global_callback(self.update)
+
+    def update(self, **kwargs):
+        if (
+            self.map is None
+            or self.state.layer is None
+            or self._viewer_state.lat_att is None
+            or self._viewer_state.lon_att is None
+        ):
+            return
+        self._update_presentation(force=True)
+
+    def _update_presentation(self, force=False, **kwargs):
+        """ """
+        print("Calling _update_presentation...")
+        if self._removed:
+            return
+
+        changed = self.pop_changed_properties()
+
+        if self.visible is False:
+            self.clear()
+        #print(f"{changed}")
+        #print(self.layer.subset_state)
+        # Hack to not do this the first time _update_presentation
+        # is called during subset creation. Should figure out a better
+        # check. We NEED the correct subset_state (RoiSubsetState)
+        # to get the polygon, but we don't have this the first time
+        # this is called.
+        if len(list(changed)) > 6:
+            return
+        x,y = self.layer.subset_state.roi.to_polygon()        
+        self.polygon_layer.locations = list(zip(y, x))
+        #self.polygon_layer.color = self.state.color
+        self.polygon_layer.fill_color = self.state.layer.style.color
+        self.polygon_layer.fill_opacity = self.state.layer.style.alpha
+        #self.polygon_layer.opacity = self.state.opacity
+        #elf.polygon_layer.visible = self.state.visible
+
+        self.enable()
 
 
 class MapImageServerLayerArtist(LayerArtist):
@@ -78,17 +141,25 @@ class MapImageServerLayerArtist(LayerArtist):
         if self._removed:
             return
 
-        changed = set() if force else self.pop_changed_properties()
+        changed = self.pop_changed_properties()
 
         if self.visible is False:
             self.clear()
 
-        if force or any(x in changed for x in ["lon_att", "lat_att"]):
+        if force or any(x in changed for x in ["timestep", "colorscale", "opacity", "data_att"]):
             if isinstance(self.layer, RemoteGeoData_ArcGISImageServer):
-                self.imageserver_layer.url = self.layer.get_image_url(self.state.data_att)
+                #print(f"{self.state.colorscale=}")
                 self.imageserver_layer.time = self.layer.get_time(self.state.timestep, 3828417352000) # FIXME: just some large value
                 self.imageserver_layer.rendering_rule = self.layer.get_rendering_rule(self.state.colorscale)
+                # Because traitlet Dicts are not eventful, changing the rendering_rule dict
+                # does not automatically update the map. As a hack we set the attribution
+                # string to force an update. We will have to do this for ANY changes to the 
+                # rendering_rule, perhaps concatenating the params for the attribution string.
+                if any(x in changed for x in ['colorscale']):
+                    self.imageserver_layer.attribution = self.state.colorscale
+
                 self.imageserver_layer.opacity = self.state.opacity
+                self.imageserver_layer.url = self.layer.get_image_url(self.state.data_att)
             else:
                 # Do something for a subset
                 pass

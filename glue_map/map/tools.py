@@ -8,6 +8,7 @@ from glue.core.subset import MultiOrState, OrState, RoiSubsetState, CategoricalR
 from glue.viewers.common.tool import CheckableTool, Tool
 from ipyleaflet import Rectangle
 from ipywidgets import CallbackDispatcher
+from ipyleaflet import LayerException
 
 __all__ = []
 
@@ -125,7 +126,6 @@ class RectangleSelect(IpyLeafletSelectionTool):
         self.end_coords = None
         self.show_subset = False
 
-
     def activate(self):
         """ """
         self.viewer.map.dragging = False
@@ -134,8 +134,11 @@ class RectangleSelect(IpyLeafletSelectionTool):
             # print(kwargs)
             if kwargs["type"] == "mousedown":
                 if self.show_subset:
-                    self.viewer.map.remove_layer(self.rect)
-                    self.show_subset = False
+                    try:
+                        self.viewer.map.remove_layer(self.rect)
+                        self.show_subset = False
+                    except LayerException:
+                        pass
                 #print(f'mousedown {kwargs["coordinates"]}')
                 self.start_coords = kwargs["coordinates"]
                 self.rect = Rectangle(
@@ -143,7 +146,7 @@ class RectangleSelect(IpyLeafletSelectionTool):
                     weight=1,
                     fill_opacity=0,
                     dash_array="5, 5",
-                    color="gray",
+                    color="yellow",
                 )
                 self.viewer.map.add_layer(self.rect)
             elif kwargs["type"] == "mouseup" and self.start_coords:
@@ -158,6 +161,7 @@ class RectangleSelect(IpyLeafletSelectionTool):
                 ymin, ymax = sorted((ymin, ymax))
                 #print(f"{xmin=}, {xmax=}, {ymin=}, {ymax=}")
                 roi = RectangularROI(xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax)
+                #roi = Polygonal
                 #print("Applying ROI...")
                 self.viewer.apply_roi(roi)
 
@@ -168,8 +172,8 @@ class RectangleSelect(IpyLeafletSelectionTool):
                     weight=1,
                     fill_opacity=0.5,
                     dash_array="5, 5",
-                    color="purple",
-                    fill_color="purple",
+                    color="yellow", #Fixme! This should be the color of the subset
+                    fill_color="yellow",
                 )
                 self.start_coords = None
 
@@ -177,7 +181,7 @@ class RectangleSelect(IpyLeafletSelectionTool):
                 self.show_subset = True
                 self.rect = new_rect
                 #self.rect.color = "purple"
-                #self.viewer.map.remove_layer(self.rect)
+                self.viewer.map.remove_layer(self.rect)
                 self.end_coords = None
             elif kwargs["type"] == "mousemove" and self.start_coords:
                 new_rect = Rectangle(
@@ -185,8 +189,8 @@ class RectangleSelect(IpyLeafletSelectionTool):
                     weight=1,
                     fill_opacity=0.1,
                     dash_array="5, 5",
-                    color="gray",
-                    fill_color="gray",
+                    color="yellow",
+                    fill_color="yellow",
                 )
 
                 self.viewer.map.substitute_layer(self.rect, new_rect)
