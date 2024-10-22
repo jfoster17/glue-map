@@ -78,7 +78,7 @@ class MapImageServerSubsetLayerArtist(LayerArtist):
 
     def _update_presentation(self, force=False, **kwargs):
         """ """
-        print("Calling _update_presentation...")
+        #print("Calling _update_presentation...")
         if self._removed:
             return
 

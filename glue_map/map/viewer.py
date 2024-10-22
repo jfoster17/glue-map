@@ -1,7 +1,6 @@
 import ipyleaflet
 import ipywidgets
 from glue.core.subset import roi_to_subset_state
-from glue.core.subset import RoiSubsetState
 
 # from glue.logger import logger
 from glue.utils import color2hex
@@ -219,8 +218,6 @@ class IPyLeafletMapViewer(IPyWidgetView):
         return cls(self.state, map=self.map, layer=layer, layer_state=layer_state)
 
     def get_subset_layer_artist(self, layer=None, layer_state=None):
-        print(layer)
-        print(layer.data)
 
         if isinstance(layer.data, RemoteGeoData_ArcGISImageServer):
             cls = MapImageServerSubsetLayerArtist
@@ -238,23 +235,16 @@ class IPyLeafletMapViewer(IPyWidgetView):
         return cls(self.state, map=self.map, layer=layer, layer_state=layer_state)
 
     def apply_roi(self, roi, override_mode=None):
-        #print("Inside apply_roi")
+        # print("Inside apply_roi")
         self.redraw()
 
         if len(self.layers) == 0:
             return
-
-        #subset_state = RoiSubsetState(xatt=self.state.lon_att,
-        #                              yatt=self.state.lat_att,
-        #                              roi=roi)
         subset_state = roi_to_subset_state(
             roi,
             x_att=self.state.lon_att,
             y_att=self.state.lat_att,
         )
-        print("subset_state:", subset_state)
-        print("subset_state.roi:", subset_state.roi)
-
         self.apply_subset_state(subset_state, override_mode=override_mode)
 
     @property
