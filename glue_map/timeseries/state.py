@@ -1,7 +1,9 @@
 from glue.viewers.profile.state import ProfileViewerState, ProfileLayerState
-from glue.core.data import Data
+from glue.core.data import Data, BaseData
 import pandas as pd
 import pickle
+from glue.core.exceptions import IncompatibleDataException
+
 from echo import delay_callback
 from shapely.geometry import Polygon
 __all__ = ['TimeSeriesViewerState', 'TimeSeriesLayerState']
@@ -18,9 +20,6 @@ TIMEZONE_LOOKUP = {'NYC': 'America/New_York',
 class TimeSeriesViewerState(ProfileViewerState):
     def __init__(self, **kwargs):
         super().__init__()
-        # This is a hack for TEMPO data
-        with open('city_data.pkl', 'rb') as f:
-            self.city_data = pickle.load(f)
         self.x_min = 0
         self.x_max = 24
 
@@ -44,46 +43,80 @@ class TimeSeriesLayerState(ProfileLayerState):
             # And turning the layer visible for the first time does
             # not refresh the zoom of the plot to show the new profile
             # data
-            self.linewidth = 0
-            self.alpha = 0.0
-            self.visible = False
+            self.linewidth = 1.0
+            self.alpha = 1.0
+            self.visible = True
         else:
             self.alpha = 1.0
             self.linewidth = 2
             self.as_steps = False
 
-    def reset_cache(self, *args):
-        # If this is a subset for a region that is already cached
-        # we simply return the cached profile. Doing this basically
-        # ignores all the other options in the profile viewer and
-        # just relies on the subset label
-        if not isinstance(self.layer, Data):
-            city_name = self.layer.label
-            profile_data = self.viewer_state.city_data.get(city_name, None)
-            if profile_data is not None:
-                time_local = pd.to_datetime(profile_data['time']).tz_localize('UTC').tz_convert(TIMEZONE_LOOKUP[city_name])
-                df = pd.DataFrame({"local_hour": time_local.hour, "season": profile_data['time'].dt.season, "data_values": profile_data.values})
-                hourly = df.groupby('local_hour').mean('data_values')
-                values = hourly['data_values'].values
-                axis_values = hourly.index.values
-                self._profile_cache = axis_values, values
-            else:
-                try:
-                    region_geom = self.layer.subset_state.roi.to_polygon()
-                except AttributeError:
-                    self._profile_cache = None
-                    return
-                clip_poly = Polygon([(x, y) for x, y in zip(region_geom[0], region_geom[1])])
-                region_clip = self.viewer_state.reference_data.xarr.rio.clip([clip_poly], self.viewer_state.reference_data.xarr.rio.crs)
-                region_mean = region_clip.mean(["longitude", "latitude"])
-                profile_data = region_mean.compute()
+    def update_profile(self, update_limits=True):
 
-                time_local = pd.to_datetime(profile_data['time']).tz_localize('UTC').tz_convert(TIMEZONE_LOOKUP['BOS']) # TODO: FIXME!
-                df = pd.DataFrame({"local_hour": time_local.hour, "season": profile_data['time'].dt.season, "data_values": profile_data.values})
-                hourly = df.groupby('local_hour').mean('data_values')
-                values = hourly['data_values'].values
-                axis_values = hourly.index.values
+        if self._profile_cache is not None:
+            return self._profile_cache
 
-                self._profile_cache = axis_values, values
+        if not self.visible:
+            return
+
+        #if not self._viewer_callbacks_set:
+        #    self.viewer_state.add_callback('x_att', self.reset_cache, priority=100000)
+        #    self.viewer_state.add_callback('x_display_unit', self.reset_cache, priority=100000)
+        #    self.viewer_state.add_callback('y_display_unit', self.reset_cache, priority=100000)
+        #    self.viewer_state.add_callback('function', self.reset_cache, priority=100000)
+        #    if self.is_callback_property('attribute'):
+        #        self.add_callback('attribute', self.reset_cache, priority=100000)
+        #    self._viewer_callbacks_set = True
+
+        #if self.viewer_state is None or self.viewer_state.x_att is None or self.attribute is None:
+        #    raise IncompatibleDataException()
+
+        if not isinstance(self.layer, BaseData):
+            if self.viewer_state.reference_data is None:
+                return
+            
+            try:
+                x, y = self.layer.subset_state.roi.to_polygon()
+                #print(x)
+                #print(y)  
+            except AttributeError:
+                self._profile_cache = [0,0],[0,0]
+                return     
+            coords = list(zip(x, y))
+            polygon = Polygon(coords)
+
+            df = self.layer.data.get_temporal_data(self.viewer_state.reference_data._main_components[0], "2024-10-01 00:00:00", "2024-10-02 00:00:00", region=polygon)
+            df = df.set_index('StdTime')
+            time_local = pd.to_datetime(df.index).tz_localize('UTC').tz_convert(TIMEZONE_LOOKUP['BOS']) # TODO: FIXME!
+            df_new = pd.DataFrame({"local_hour": time_local.hour, "data_values": df['NO2 Troposphere']})
+            hourly = df_new.groupby('local_hour').mean('data_values')
+            values = hourly['data_values'].values/1e15
+            axis_values = hourly.index.values
+            #print("This is a subset")
+            #print(values)
+            #print(axis_values)
+            self._profile_cache = axis_values, values
         else:
-            self._profile_cache = None
+            if self.viewer_state.reference_data is None:
+                return
+            
+            df = self.layer.data.get_temporal_data(self.viewer_state.reference_data._main_components[0], "2024-10-01 00:00:00", "2024-10-02 00:00:00")
+            df = df.set_index('StdTime')
+            time_local = pd.to_datetime(df.index).tz_localize('UTC').tz_convert(TIMEZONE_LOOKUP['BOS']) # TODO: FIXME!
+            df_new = pd.DataFrame({"local_hour": time_local.hour, "data_values": df['NO2 Troposphere']})
+            hourly = df_new.groupby('local_hour').mean('data_values')
+            values = hourly['data_values'].values/1e15
+            axis_values = hourly.index.values
+            #print("This is a data object")
+            #print(values)
+            #print(axis_values)
+            self._profile_cache = axis_values, values
+
+    def update_limits(self, update_profile=True):
+        pass
+        #with delay_callback(self, 'v_min', 'v_max'):
+        #    if update_profile:
+        #        self.update_profile(update_limits=False)
+        #    if self._profile_cache is not None and len(self._profile_cache[1]) > 0:
+        #        self.v_min = np.nanmin(self._profile_cache[1])
+        #        self.v_max = np.nanmax(self._profile_cache[1])

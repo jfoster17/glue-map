@@ -15,9 +15,9 @@ class TimeSeriesLayerArtist(BqplotProfileLayerArtist):
     def __init__(self, view, viewer_state, layer_state=None, layer=None):
 
         super().__init__(view, viewer_state, layer_state=layer_state, layer=layer)
-        LinesClass = LinesGL if USE_GL else bqplot.Lines
+        #LinesClass = LinesGL if USE_GL else bqplot.Lines
 
-        self.line_mark = LinesClass(scales=self.view.scales, x=[], y=[])
+        #self.line_mark = LinesClass(scales=self.view.scales, x=[], y=[])
     #Profile state does this: computing the profile and caching it
     #
     #@property

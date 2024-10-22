@@ -248,7 +248,7 @@ class RemoteGeoData_ArcGISImageServer(BaseCartesianData):
             "geometry": f"{esri_region}",
             "geometryType": "esriGeometryPolygon",
             "sampleDistance": "",
-            "sampleCount": 4,
+            "sampleCount": 10,
             "mosaicRule": "",
             "pixelSize": "",
             "returnFirstValueOnly": "false",
@@ -260,16 +260,16 @@ class RemoteGeoData_ArcGISImageServer(BaseCartesianData):
         }
 
         getSamples_url = self.get_image_url(self._main_components[0]) + "/getSamples"
-        print(getSamples_url)
-        print(params)
+        #print(getSamples_url)
+        #print(params)
         response = requests.post(getSamples_url, params=params)
-        print(response)
+        #print(response)
         data = response.json()
 
         samples = []
         for sample in data["samples"]:
             if "attributes" in sample:
-                print(sample['attributes'])
+                #print(sample['attributes'])
                 val = sample["attributes"][variable_name]
                 try:
                     value = float(val)
