@@ -10,11 +10,18 @@ import xarray as xr
 import glob
 import requests
 import pandas as pd
+import shapely
 
 import warnings
 warnings.filterwarnings('ignore') # setting ignore as a parameter
 
 __all__ = ["InvalidGeoData", "GeoRegionData", "GeoPandasTranslator", "GriddedGeoData", "RemoteGeoData_ArcGISImageServer"]
+
+# very crude bounds for the full continental US, which we use
+# as a default region for getSamples
+# FIXME
+US_BOUNDS = ((-127., 27.), (-132., 50.), (-60., 46.), (-71., 25.), (-127., 27.))
+US_POLYGON = shapely.Polygon(US_BOUNDS)
 
 
 def convert_from_milliseconds(milliseconds_since_epoch):
@@ -147,8 +154,9 @@ class RemoteGeoData_ArcGISImageServer(BaseCartesianData):
 
         This is very TEMPO specific.
         """
-        params = {'f':'json'}
-        url = self.get_image_url(self._main_components[0])+"/slices"       
+        params = {'f': 'json'}
+        url = self.get_image_url(self._main_components[0])+"/slices"
+        print(f"{url=}")     
         data = requests.post(url, params=params).json()
         slice_list = data['slices']
         time_steps = []
@@ -164,7 +172,7 @@ class RemoteGeoData_ArcGISImageServer(BaseCartesianData):
             input_date = datetime.strptime(date, '%Y-%m-%d')
             next_day = input_date + timedelta(days=1)
             start = convert_to_milliseconds(f'{input_date.strftime("%Y-%m-%d")} 05:00:00')
-            end   = convert_to_milliseconds(f'{next_day.strftime("%Y-%m-%d")} 02:00:00')
+            end = convert_to_milliseconds(f'{next_day.strftime("%Y-%m-%d")} 02:00:00')
             return (start, end)
         
         start, end = get_time_steps_for_date(date)
@@ -205,14 +213,14 @@ class RemoteGeoData_ArcGISImageServer(BaseCartesianData):
 
     def translate_region(self, region):
         """
-        Translate a Shaeply region to an esriGeometryPolygon string.
+        Translate a Shapely region to an esriGeometryPolygon string.
         """
         if region is None:
             return None
         if region.geom_type == 'Polygon':
-            return f'{{"rings":[{list(region.exterior.coords)}],"spatialReference":{{"wkid":4326}}}}'
+            return f'{{"rings":[{list(list(x) for x in region.exterior.coords)}],"spatialReference":{{"wkid":4326}}}}'
         elif region.geom_type == 'MultiPolygon':
-            return f'{{"rings":[{[list(p.exterior.coords) for p in region]}],"spatialReference":{{"wkid":4326}}}}'
+            return f'{{"rings":[{[list(list(x) for x in p.exterior.coords) for p in region]}],"spatialReference":{{"wkid":4326}}}}'
         else:
             raise ValueError("Region must be a Polygon or MultiPolygon")
 
@@ -229,16 +237,19 @@ class RemoteGeoData_ArcGISImageServer(BaseCartesianData):
             The end time in 'YYYY-MM-DD HH:MM:SS' format (UTC).
 
         """
+
         start_time_ms = convert_to_milliseconds(start_time)
         end_time_ms = convert_to_milliseconds(end_time)
-        variable_name = cid.label
+        variable_name = "NO2 Troposphere"
+        if region is None:
+            region = US_POLYGON
         esri_region = self.translate_region(region)
         params = {
             "geometry": f"{esri_region}",
             "geometryType": "esriGeometryPolygon",
             "sampleDistance": "",
-            "sampleCount": "",
-            "mosaicRule": f'{{"multidimensionalDefinition":[{{"variableName":"{variable_name}"}}]}}',
+            "sampleCount": 4,
+            "mosaicRule": "",
             "pixelSize": "",
             "returnFirstValueOnly": "false",
             "interpolation": "RSP_BilinearInterpolation",
@@ -248,19 +259,35 @@ class RemoteGeoData_ArcGISImageServer(BaseCartesianData):
             "f": "pjson"
         }
 
-        getSamples_url = self.url + "/getSamples"
+        getSamples_url = self.get_image_url(self._main_components[0]) + "/getSamples"
+        print(getSamples_url)
+        print(params)
         response = requests.post(getSamples_url, params=params)
+        print(response)
         data = response.json()
 
-        samples = [{
-            "StdTime": sample["attributes"]["StdTime"],
-            variable_name: float(sample["attributes"][variable_name])
-        } for sample in data["samples"] if "attributes" in sample]
+        samples = []
+        for sample in data["samples"]:
+            if "attributes" in sample:
+                print(sample['attributes'])
+                val = sample["attributes"][variable_name]
+                try:
+                    value = float(val)
+                except ValueError:
+                    value = np.nan
+                time = sample["attributes"]["StdTime"]
+                samples.append({"StdTime": time, variable_name: value})
+
+        #samples = [{
+        #    "StdTime": sample["attributes"]["StdTime"],
+        #    variable_name: float(sample["attributes"][variable_name])
+        #} for sample in data["samples"] if "attributes" in sample]
 
         df = pd.DataFrame(samples)
 
         # Convert StdTime from Unix timestamp (milliseconds) to datetime
         df['StdTime'] = pd.to_datetime(df['StdTime'], unit='ms')
+        return df
 
     def get_image_url(self, cid):
         """
