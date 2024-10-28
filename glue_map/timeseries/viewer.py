@@ -18,5 +18,13 @@ class TimeSeriesViewer(BqplotProfileView):
     _subset_artist_cls = TimeSeriesLayerSubsetArtist
     _layer_style_widget_cls = TimeSeriesLayerStateWidget
 
-    tools = ['bqplot:home', 'bqplot:panzoom', 'bqplot:panzoom_x', 'bqplot:panzoom_y',
-             'bqplot:xrange']
+    # Defining tools here does not seem to override the previously defined tools
+    tools = ['bqplot:home', 'bqplot:panzoom', 'bqplot:panzoom_x', 'bqplot:panzoom_y']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    # A hack to make subsets not work from the viewer
+    # FIXME if we add subset creation objects
+    def apply_roi(self, roi, use_current=False):
+        pass
