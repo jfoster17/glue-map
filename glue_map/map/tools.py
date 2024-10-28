@@ -172,7 +172,7 @@ class RectangleSelect(IpyLeafletSelectionTool):
                     weight=1,
                     fill_opacity=0.5,
                     dash_array="5, 5",
-                    color="yellow", #Fixme! This should be the color of the subset
+                    color="yellow",
                     fill_color="yellow",
                 )
                 self.start_coords = None

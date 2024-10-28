@@ -99,7 +99,7 @@ class MapImageServerSubsetLayerArtist(LayerArtist):
         self.polygon_layer.locations = list(zip(y, x))
         #self.polygon_layer.color = self.state.color
         self.polygon_layer.fill_color = self.state.layer.style.color
-        self.polygon_layer.fill_opacity = self.state.layer.style.alpha
+        self.polygon_layer.fill_opacity = self.state.layer.style.alpha-0.5
         #self.polygon_layer.opacity = self.state.opacity
         #elf.polygon_layer.visible = self.state.visible
 

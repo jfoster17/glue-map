@@ -200,7 +200,7 @@ class TimeSeriesLayerState(ProfileLayerState):
             time_local = pd.to_datetime(df.index).tz_localize('UTC').tz_convert(TIMEZONE_LOOKUP[self.viewer_state.timezone])
             df_new = pd.DataFrame({"local_hour": time_local.hour, "data_values": df['NO2 Troposphere']})
             hourly = df_new.groupby('local_hour').mean('data_values')
-            values = hourly['data_values'].values/1e15
+            values = hourly['data_values'].values/1e14
             axis_values = hourly.index.values
             #print("This is a subset")
             #print(values)
@@ -215,7 +215,7 @@ class TimeSeriesLayerState(ProfileLayerState):
             time_local = pd.to_datetime(df.index).tz_localize('UTC').tz_convert(TIMEZONE_LOOKUP[self.viewer_state.timezone])
             df_new = pd.DataFrame({"local_hour": time_local.hour, "data_values": df['NO2 Troposphere']})
             hourly = df_new.groupby('local_hour').mean('data_values')
-            values = hourly['data_values'].values/1e15
+            values = hourly['data_values'].values/1e14
             axis_values = hourly.index.values
             print(values)
             print(axis_values)
