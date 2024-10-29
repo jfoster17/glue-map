@@ -95,11 +95,11 @@ class MapImageServerSubsetLayerArtist(LayerArtist):
         # this is called.
         if len(list(changed)) > 6:
             return
-        x,y = self.layer.subset_state.roi.to_polygon()        
+        x,y = self.layer.subset_state.roi.to_polygon()
         self.polygon_layer.locations = list(zip(y, x))
         #self.polygon_layer.color = self.state.color
         self.polygon_layer.fill_color = self.state.layer.style.color
-        self.polygon_layer.fill_opacity = self.state.layer.style.alpha-0.5
+        self.polygon_layer.fill_opacity = self.state.layer.style.alpha-0.3
         #self.polygon_layer.opacity = self.state.opacity
         #elf.polygon_layer.visible = self.state.visible
 

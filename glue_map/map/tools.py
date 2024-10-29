@@ -6,16 +6,15 @@ from glue.config import viewer_tool
 from glue.core.roi import PolygonalROI, RectangularROI, CategoricalROI
 from glue.core.subset import MultiOrState, OrState, RoiSubsetState, CategoricalROISubsetState
 from glue.viewers.common.tool import CheckableTool, Tool
-from ipyleaflet import Rectangle
+from ipyleaflet import Rectangle, Polygon, LayerException
 from ipywidgets import CallbackDispatcher
-from ipyleaflet import LayerException
 
 __all__ = []
 
 ICON_WIDTH = 20
-INTERACT_COLOR = "#cbcbcb"
+INTERACT_COLOR = "yellow"
 
-ICONS_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "icons")
+ICONS_DIR = os.path.join(os.path.dirname(__file__), '..', '..', 'icons')
 
 
 class InteractCheckableTool(CheckableTool):
@@ -112,6 +111,99 @@ class PointSelect(IpyLeafletSelectionTool):
 
 
 @viewer_tool
+class PolygonSelect(IpyLeafletSelectionTool):
+    icon = os.path.join(ICONS_DIR, "glue_polygon")
+    tool_id = "ipyleaflet:polygonselect"
+    action_text = "Polygonal ROI"
+    tool_tip = "Click to define polygonal region of interest"
+    status_tip = "Draw a polygonal region of interest"
+
+    def __init__(self, viewer):
+        super(PolygonSelect, self).__init__(viewer)
+        # create an empty two dimensional array to store the points
+        self.points = []
+        self.show_subset = False
+        self.poly = None
+        self.patch_x = []
+        self.patch_y = []
+    
+    def activate(self):
+        self.viewer.map.dragging = False
+        self.show_subset = False
+
+        self.points = []
+        self.poly = Polygon(locations=[], color=INTERACT_COLOR, fill_color=INTERACT_COLOR,
+                    weight=1,
+                    fill_opacity=0.5,
+                    dash_array="5, 5")
+        self.patch_x = []
+        self.patch_y = []
+
+        def map_interaction(**kwargs):
+            if kwargs["type"] == "click":
+                if self.show_subset:
+                    try:
+                        self.viewer.map.remove_layer(self.poly)
+                        self.show_subset = False
+                    except LayerException:
+                        pass
+                x, y = kwargs["coordinates"]
+                #print(f"Click at {x}, {y}")
+                if len(self.points) == 0:
+                    self.points.append(kwargs["coordinates"])
+                    self.patch_x.append(x)
+                    self.patch_y.append(y)
+                    self.poly.locations = self.points
+                    #print(f"Adding layer with {self.points}")
+                    self.viewer.map.add_layer(self.poly)
+                elif len(self.points) > 0:
+                    #print("More than one point...")
+                    #print(f"{self.points=}")
+                    #print(f"{self.poly.locations=}")
+                    sz = max(self.patch_x) - min(self.patch_x), max(self.patch_y) - min(self.patch_y)
+                    if (abs(x - self.patch_x[0]) < 0.02 * sz[0] and abs(y - self.patch_y[0]) < 0.02 * sz[1]):
+                        self.close_vertices()
+                    else:
+                        # We double-track the set of coordinates
+                        # just to make the calculation easier
+                        self.points.append(kwargs["coordinates"])
+                        self.patch_x.append(x)
+                        self.patch_y.append(y)
+                        new_poly = Polygon(locations=self.points, 
+                                           color=INTERACT_COLOR, fill_color=INTERACT_COLOR,
+                                            weight=1,
+                                            fill_opacity=0.5,
+                                            dash_array="5, 5")
+                        self.viewer.map.substitute_layer(self.poly, new_poly)
+                        self.poly = new_poly
+                        #self.poly.locations = self.points
+
+        self.viewer.map.on_interaction(map_interaction)
+
+    def close_vertices(self):
+        #print("Closing vertices...")
+        roi = PolygonalROI(vx=self.patch_y, vy=self.patch_x)
+        #print(f"{roi=}")
+        self.viewer.apply_roi(roi)
+
+        self.show_subset = True
+        try:
+            self.viewer.map.remove_layer(self.poly)
+        except LayerException:
+            pass
+
+    def deactivate(self):
+        if len(self.points) > 1:
+            self.close_vertices()
+        self.viewer.map.dragging = True
+        self.viewer.map._interaction_callbacks = CallbackDispatcher()
+
+    def close(self):
+        pass
+
+
+
+@viewer_tool
 class RectangleSelect(IpyLeafletSelectionTool):
     icon = "glue_square"
     tool_id = "ipyleaflet:rectangleselect"
@@ -146,7 +238,7 @@ class RectangleSelect(IpyLeafletSelectionTool):
                     weight=1,
                     fill_opacity=0,
                     dash_array="5, 5",
-                    color="yellow",
+                    color=INTERACT_COLOR,
                 )
                 self.viewer.map.add_layer(self.rect)
             elif kwargs["type"] == "mouseup" and self.start_coords:
@@ -172,8 +264,8 @@ class RectangleSelect(IpyLeafletSelectionTool):
                     weight=1,
                     fill_opacity=0.5,
                     dash_array="5, 5",
-                    color="yellow",
-                    fill_color="yellow",
+                    color=INTERACT_COLOR,
+                    fill_color=INTERACT_COLOR,
                 )
                 self.start_coords = None
 
