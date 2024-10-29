@@ -248,7 +248,7 @@ class RemoteGeoData_ArcGISImageServer(BaseCartesianData):
             "geometry": f"{esri_region}",
             "geometryType": "esriGeometryPolygon",
             "sampleDistance": "",
-            "sampleCount": 10,
+            "sampleCount": 30,
             "mosaicRule": "",
             "pixelSize": "",
             "returnFirstValueOnly": "false",
