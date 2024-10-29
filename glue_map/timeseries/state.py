@@ -206,6 +206,7 @@ class TimeSeriesLayerState(ProfileLayerState):
             #print(values)
             #print(axis_values)
             self._profile_cache = axis_values, values
+            self.viewer_state.reset_limits()
 
         else:
             #print("This is a data object")
