@@ -1,12 +1,11 @@
 import os
-import time
 
 import numpy as np
 from glue.config import viewer_tool
-from glue.core.roi import PolygonalROI, RectangularROI, CategoricalROI
-from glue.core.subset import MultiOrState, OrState, RoiSubsetState, CategoricalROISubsetState
+from glue.core.roi import PolygonalROI, RectangularROI
+from glue.core.subset import MultiOrState, RoiSubsetState
 from glue.viewers.common.tool import CheckableTool, Tool
-from ipyleaflet import Rectangle, Polygon, LayerException
+from ipyleaflet import Rectangle, Polygon, Polyline, LayerException
 from ipywidgets import CallbackDispatcher
 
 __all__ = []
@@ -111,6 +110,89 @@ class PointSelect(IpyLeafletSelectionTool):
 
 
 @viewer_tool
+class LassoSelect(IpyLeafletSelectionTool):
+    icon = os.path.join(ICONS_DIR, "glue_lasso")
+    tool_id = "ipyleaflet:lassoselect"
+    action_text = "Lasso"
+    tool_tip = "Lasso a region of interest"
+    status_tip = "Lasso a region of interest"
+
+    def __init__(self, viewer):
+        super(LassoSelect, self).__init__(viewer)
+        # create an empty two dimensional array to store the points
+        self.points = []
+        self.show_subset = False
+        self.poly = None
+        self.patch_x = []
+        self.patch_y = []
+        self.styling = {"color": INTERACT_COLOR,
+                        "fill_color": INTERACT_COLOR,
+                        "weight": 1,
+                        "fill_opacity": 0.5,
+                        "dash_array": "5, 5"}
+
+    def activate(self):
+        self.viewer.map.dragging = False
+        self.show_subset = False
+        self.start_coords = None
+        self.points = []
+        self.poly = Polygon(locations=[], **self.styling)
+        self.patch_x = []
+        self.patch_y = []
+
+        def map_interaction(**kwargs):
+            
+            # Start a new region on mousedown
+            if kwargs["type"] == "mousedown":
+                if self.show_subset:
+                    try:
+                        self.viewer.map.remove_layer(self.poly)
+                        self.show_subset = False
+                    except LayerException:
+                        pass
+                x, y = kwargs["coordinates"]
+                self.start_coords = kwargs["coordinates"]
+                self.points.append(kwargs["coordinates"])
+                self.patch_x.append(x)
+                self.patch_y.append(y)
+                self.poly.locations = self.points
+                self.viewer.map.add_layer(self.poly)
+
+            elif kwargs["type"] == "mousemove" and self.start_coords:
+                self.points.append(kwargs["coordinates"])
+                x, y = kwargs["coordinates"]
+                self.patch_x.append(x)
+                self.patch_y.append(y)
+                new_poly = Polygon(locations=self.points, **self.styling)
+                self.viewer.map.substitute_layer(self.poly, new_poly)
+                self.poly = new_poly
+            elif kwargs["type"] == "mouseup" and self.start_coords:
+                self.close_vertices()
+            elif kwargs["type"] == "mouseleave" and self.start_coords:
+                self.close_vertices()
+        self.viewer.map.on_interaction(map_interaction)
+
+    def close_vertices(self):
+        roi = PolygonalROI(vx=self.patch_y, vy=self.patch_x)
+        self.viewer.apply_roi(roi)
+        self.show_subset = True
+        try:
+            self.viewer.map.remove_layer(self.poly)
+        except LayerException:
+            pass
+        self.deactivate(no_close=True)
+
+    def deactivate(self, no_close=False):
+        if len(self.points) > 1 and not no_close:
+            self.close_vertices()
+        self.viewer.map.dragging = True
+        self.viewer.map._interaction_callbacks = CallbackDispatcher()
+
+    def close(self):
+        pass
+
+
+@viewer_tool
 class PolygonSelect(IpyLeafletSelectionTool):
     icon = os.path.join(ICONS_DIR, "glue_polygon")
     tool_id = "ipyleaflet:polygonselect"
@@ -126,16 +208,18 @@ class PolygonSelect(IpyLeafletSelectionTool):
         self.poly = None
         self.patch_x = []
         self.patch_y = []
+        self.styling = {"color": INTERACT_COLOR,
+                        "fill_color": INTERACT_COLOR,
+                        "weight": 1,
+                        "fill_opacity": 0.5,
+                        "dash_array": "5, 5"}
     
     def activate(self):
         self.viewer.map.dragging = False
         self.show_subset = False
 
         self.points = []
-        self.poly = Polygon(locations=[], color=INTERACT_COLOR, fill_color=INTERACT_COLOR,
-                    weight=1,
-                    fill_opacity=0.5,
-                    dash_array="5, 5")
+        self.poly = Polygon(locations=[], **self.styling)
         self.patch_x = []
         self.patch_y = []
 
@@ -169,13 +253,14 @@ class PolygonSelect(IpyLeafletSelectionTool):
                         self.points.append(kwargs["coordinates"])
                         self.patch_x.append(x)
                         self.patch_y.append(y)
-                        new_poly = Polygon(locations=self.points, 
-                                           color=INTERACT_COLOR, fill_color=INTERACT_COLOR,
-                                            weight=1,
-                                            fill_opacity=0.5,
-                                            dash_array="5, 5")
+                        if len(self.points) == 2:
+                            new_poly = Polyline(locations=self.points, **self.styling)
+                        else:
+                            new_poly = Polygon(locations=self.points, **self.styling)
                         self.viewer.map.substitute_layer(self.poly, new_poly)
                         self.poly = new_poly
+                        # In theory we could just update the locations
+                        # but this does not seem to work consistently.
                         #self.poly.locations = self.points
 
         self.viewer.map.on_interaction(map_interaction)

@@ -176,7 +176,7 @@ class IPyLeafletMapViewer(IPyWidgetView):
 
     }
 
-    tools = ["ipyleaflet:rectangleselect", 'ipyleaflet:polygonselect']
+    tools = ["ipyleaflet:rectangleselect", 'ipyleaflet:polygonselect', 'ipyleaflet:lassoselect']
 
     def __init__(self, session, state=None):
         # logger.debug("Creating a new Viewer...")
