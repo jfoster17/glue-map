@@ -156,7 +156,7 @@ class RemoteGeoData_ArcGISImageServer(BaseCartesianData):
         """
         params = {'f': 'json'}
         url = self.get_image_url(self._main_components[0])+"/slices"
-        print(f"{url=}")     
+        #print(f"{url=}")     
         data = requests.post(url, params=params).json()
         slice_list = data['slices']
         time_steps = []

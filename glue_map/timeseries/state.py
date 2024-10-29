@@ -38,8 +38,8 @@ class TimeSeriesViewerState(ProfileViewerState):
         #self.add_callback('t_min', self._layers_changed)
         #self.add_callback('t_max', self._layers_changed)
         #self.add_callback('timezone', self._layers_changed)
-        self.t_min = "2024-10-01 00:00:00"
-        self.t_max = "2024-10-02 00:00:00"
+        self.t_min = "2024-10-15 00:00:00"
+        self.t_max = "2024-10-16 00:00:00"
         self.timezone = 'NYC'
         #print("Reference data changed and time params set")
 
@@ -56,9 +56,9 @@ class TimeSeriesViewerState(ProfileViewerState):
 
     @defer_draw
     def _reference_data_changed(self, before=None, after=None):
-        print("Reference data changed")
-        print(f"{before=}")
-        print(f"{after=}")
+        #print("Reference data changed")
+        #print(f"{before=}")
+        #print(f"{after=}")
 
         # A callback event for reference_data is triggered if the choices change
         # but the actual selection doesn't - so we avoid resetting the WCS in
@@ -67,7 +67,7 @@ class TimeSeriesViewerState(ProfileViewerState):
             return
 
         for layer in self.layers:
-            print(f"{layer=}")
+            #print(f"{layer=}")
             layer.reset_cache()
 
         # This signal can get emitted if just the choices but not the actual
@@ -88,7 +88,7 @@ class TimeSeriesViewerState(ProfileViewerState):
                     else:
                         self.x_att_helper.world_coord = False
                         self.x_att = self.reference_data.pixel_component_ids[0]
-                print("Calling _update_att...")
+                #print("Calling _update_att...")
                 self._update_att()
 
         #print("Calling reset_limits...")
@@ -154,12 +154,12 @@ class TimeSeriesLayerState(ProfileLayerState):
             self.update_profile(update_limits=False)
 
     def reset_cache(self, *args):
-        print("Resetting cache...")
+        #print("Resetting cache...")
         self._profile_cache = None
 
     def update_profile(self, update_limits=True):
-        print("Calling update_profile")
-        print(f"{self._profile_cache=}")
+        #print("Calling update_profile")
+        #print(f"{self._profile_cache=}")
         if self._profile_cache is not None:
             return self._profile_cache
 
@@ -179,7 +179,7 @@ class TimeSeriesLayerState(ProfileLayerState):
             raise IncompatibleDataException()
 
         param_list = [self.viewer_state.reference_data, self.viewer_state.t_min, self.viewer_state.t_max, self.viewer_state.timezone]
-        print(f"{param_list=}")
+        #print(f"{param_list=}")
         if any(param is None for param in param_list):
             return
 
@@ -206,19 +206,20 @@ class TimeSeriesLayerState(ProfileLayerState):
             #print(values)
             #print(axis_values)
             self._profile_cache = axis_values, values
+
         else:
-            print("This is a data object")
+            #print("This is a data object")
 
             df = self.layer.data.get_temporal_data(self.viewer_state.reference_data._main_components[0], self.viewer_state.t_min, self.viewer_state.t_max)
-            print(df)
+            #print(df)
             df = df.set_index('StdTime')
             time_local = pd.to_datetime(df.index).tz_localize('UTC').tz_convert(TIMEZONE_LOOKUP[self.viewer_state.timezone])
             df_new = pd.DataFrame({"local_hour": time_local.hour, "data_values": df['NO2 Troposphere']})
             hourly = df_new.groupby('local_hour').mean('data_values')
             values = hourly['data_values'].values/1e14
             axis_values = hourly.index.values
-            print(values)
-            print(axis_values)
+            #print(values)
+            #print(axis_values)
             self._profile_cache = axis_values, values
             if not self.viewer_state._initial_y_scale_done:
                 self.viewer_state.reset_limits()

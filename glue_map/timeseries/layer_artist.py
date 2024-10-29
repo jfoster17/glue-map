@@ -30,7 +30,7 @@ class TimeSeriesLayerArtist(BqplotProfileLayerArtist):
     #    return self._profile_cache
 
     def _update_profile(self, force=False, **kwargs):
-        print(f"Calling _update_profile...")
+        #print(f"Calling _update_profile...")
 
     # TODO: we need to factor the following code into a common method.
 
@@ -43,7 +43,7 @@ class TimeSeriesLayerArtist(BqplotProfileLayerArtist):
         # NOTE: we need to evaluate this even if force=True so that the cache
         # of updated properties is up to date after this method has been called.
         changed = self.pop_changed_properties()
-        print(f"Calling _update_profile with {force=} and {changed=}")    
+        #print(f"Calling _update_profile with {force=} and {changed=}")    
         if force or any(prop in changed for prop in ('layer', 'x_att', 'attribute',
                                                         'function', 'normalize',
                                                         'v_min', 'v_max',
