@@ -5,6 +5,11 @@ from .layer_artist import TimeSeriesLayerArtist, TimeSeriesLayerSubsetArtist
 from .state_widgets.viewer_timeseries import TimeSeriesViewerStateWidget
 from .state_widgets.layer_timeseries import TimeSeriesLayerStateWidget
 
+import bqplot
+from bqplot_image_gl import LinesGL
+
+USE_GL = True
+
 
 class TimeSeriesViewer(BqplotProfileView):
 
@@ -23,6 +28,11 @@ class TimeSeriesViewer(BqplotProfileView):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+        LinesClass = LinesGL if USE_GL else bqplot.Lines
+        self.timemark = LinesClass(scales=self.scales, x=[8, 8], y=[-1000, 1000], colors=['gray'], stroke_width=0.3)
+        self.figure.marks = list(self.figure.marks) + [self.timemark]
+
 
     # A hack to make subsets not work from the viewer
     # FIXME if we add subset creation objects
