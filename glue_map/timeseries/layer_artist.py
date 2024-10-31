@@ -19,9 +19,10 @@ class TimeSeriesLayerArtist(BqplotProfileLayerArtist):
         # but we don't want to do it twice and delay_callback is not working properly.
         self._viewer_state.add_callback('t_min', self._update_profile, priority=100000)
         #self._viewer_state.add_callback('t_max', self._update_profile, priority=100000)
+        #self.view.figure.marks = list(self.view.figure.marks)[:-1] # Get rid of the list mark which is set up with the wrong values in super
         #LinesClass = LinesGL if USE_GL else bqplot.Lines
-
         #self.line_mark = LinesClass(scales=self.view.scales, x=[], y=[])
+        #self.view.figure.marks = list(self.view.figure.marks) + [self.line_mark]
     #Profile state does this: computing the profile and caching it
     #
     #@property

@@ -7,8 +7,8 @@ from .state_widgets.layer_timeseries import TimeSeriesLayerStateWidget
 
 import bqplot
 from bqplot_image_gl import LinesGL
-
-USE_GL = True
+import numpy as np
+USE_GL = False
 
 
 class TimeSeriesViewer(BqplotProfileView):
@@ -30,8 +30,40 @@ class TimeSeriesViewer(BqplotProfileView):
         super().__init__(*args, **kwargs)
 
         LinesClass = LinesGL if USE_GL else bqplot.Lines
-        self.timemark = LinesClass(scales=self.scales, x=[8, 8], y=[-1000, 1000], colors=['gray'], stroke_width=0.3)
+
+        self.scale_x = bqplot.DateScale(allow_padding=True)
+        self.axis_x.scale = self.scale_x
+        self.scales = {'x': self.scale_x, 'y': self.scale_y}
+        print(self.scales)
+        print(self.state.t_min)
+        starting_point = np.array([self.state.t_min, self.state.t_min]).astype('datetime64[ms]')
+        self.timemark = LinesClass(scales=self.scales, x=starting_point, y=[-1000, 1000], colors=['gray'], stroke_width=0.3)
         self.figure.marks = list(self.figure.marks) + [self.timemark]
+
+    def _update_bqplot_limits(self, *args):
+
+        if self._last_limits == (self.state.x_min, self.state.x_max,
+                                 self.state.y_min, self.state.y_max):
+            return
+
+        # NOTE: in the following, the figure will still update twice. There
+        # isn't a way around it at the moment and nesting the context managers
+        # doesn't change this - at the end of the day, the two scales are
+        # separate widgets so will result in two updates.
+
+        if self.state.x_min is not None and self.state.x_max is not None:
+            with self.scale_x.hold_sync():
+                self.scale_x.min = self.state.x_min
+                self.scale_x.max = self.state.x_max
+
+        if self.state.y_min is not None and self.state.y_max is not None:
+            with self.scale_y.hold_sync():
+                self.scale_y.min = float(self.state.y_min)
+                self.scale_y.max = float(self.state.y_max)
+
+        self._last_limits = (self.state.x_min, self.state.x_max,
+                             self.state.y_min, self.state.y_max)
+
 
 
     # A hack to make subsets not work from the viewer

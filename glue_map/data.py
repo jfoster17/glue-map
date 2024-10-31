@@ -241,6 +241,7 @@ class RemoteGeoData_ArcGISImageServer(BaseCartesianData):
         start_time_ms = convert_to_milliseconds(start_time)
         end_time_ms = convert_to_milliseconds(end_time)
         variable_name = "NO2 Troposphere"
+        new_var_name = "NO2_Troposphere"
         if region is None:
             region = US_POLYGON
         esri_region = self.translate_region(region)
@@ -265,26 +266,22 @@ class RemoteGeoData_ArcGISImageServer(BaseCartesianData):
         response = requests.post(getSamples_url, params=params)
         #print(response)
         data = response.json()
-
         samples = []
         for sample in data["samples"]:
             if "attributes" in sample:
                 #print(sample['attributes'])
-                val = sample["attributes"][variable_name]
+                val = sample["attributes"][new_var_name]
                 try:
                     value = float(val)
                 except ValueError:
                     value = np.nan
                 time = sample["attributes"]["StdTime"]
-                samples.append({"StdTime": time, variable_name: value})
-
+                samples.append({"StdTime": time, new_var_name: value})
         #samples = [{
         #    "StdTime": sample["attributes"]["StdTime"],
         #    variable_name: float(sample["attributes"][variable_name])
         #} for sample in data["samples"] if "attributes" in sample]
-
         df = pd.DataFrame(samples)
-
         # Convert StdTime from Unix timestamp (milliseconds) to datetime
         df['StdTime'] = pd.to_datetime(df['StdTime'], unit='ms')
         return df

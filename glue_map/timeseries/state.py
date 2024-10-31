@@ -1,7 +1,7 @@
 from glue.viewers.profile.state import ProfileViewerState, ProfileLayerState
 from glue.core.data import Data, BaseData
 import pandas as pd
-import pickle
+import numpy as np
 from glue.core.exceptions import IncompatibleDataException
 from glue.utils import defer_draw
 
@@ -30,8 +30,8 @@ class TimeSeriesViewerState(ProfileViewerState):
 
     def __init__(self, **kwargs):
         super().__init__()
-        self.x_min = 0
-        self.x_max = 24
+        #self.x_min = 0
+        #self.x_max = 24
         timezone_display = {'NYC': 'Eastern', 'CHI': 'Central', 'DEN': 'Mountain', 'LA': 'Pacific'}
         TimeSeriesViewerState.timezone.set_choices(self, ['NYC','CHI','DEN','LA'])
         TimeSeriesViewerState.timezone.set_display_func(self, timezone_display.get)
@@ -46,13 +46,18 @@ class TimeSeriesViewerState(ProfileViewerState):
         self.update_from_dict(kwargs)
 
     def _reset_x_limits(self, *event):
-
+        print("In _reset_x_limits...")
         if self.reference_data is None or self.x_att_pixel is None:
             return
 
-        with delay_callback(self, 'x_min', 'x_max'):
-            self.x_min = 0
-            self.x_max = 24
+        #with delay_callback(self, 'x_min', 'x_max'):
+            # Convert the iso format time to a datetime object
+        #    self.x_min = pd.to_datetime(self.t_min).to_numpy()
+        #    self.x_max = pd.to_datetime(self.t_max).to_numpy()
+            #if self._profile_cache is not None:
+            #    print("Setting x_min and x_max...")
+            #    self.x_min = self._profile_cache[0][0]
+            #    self.x_max = self._profile_cache[0][-1]
 
     @defer_draw
     def _reference_data_changed(self, before=None, after=None):
@@ -190,37 +195,28 @@ class TimeSeriesLayerState(ProfileLayerState):
                 #print(x)
                 #print(y)  
             except AttributeError:
-                self._profile_cache = [0,0],[0,0]
+                self._profile_cache = None
                 return     
             coords = list(zip(x, y))
             polygon = Polygon(coords)
 
             df = self.layer.data.get_temporal_data(self.viewer_state.reference_data._main_components[0], self.viewer_state.t_min, self.viewer_state.t_max, region=polygon)
-            df = df.set_index('StdTime')
-            time_local = pd.to_datetime(df.index).tz_localize('UTC').tz_convert(TIMEZONE_LOOKUP[self.viewer_state.timezone])
-            df_new = pd.DataFrame({"local_hour": time_local.hour, "data_values": df['NO2 Troposphere']})
-            hourly = df_new.groupby('local_hour').mean('data_values')
-            values = hourly['data_values'].values/1e14
-            axis_values = hourly.index.values
+            agg = df.groupby(by='StdTime').agg({'NO2_Troposphere': np.nanmean})
+            values = agg['NO2_Troposphere'].values/1e14
+            axis_values = agg.index.values
             #print("This is a subset")
-            #print(values)
-            #print(axis_values)
             self._profile_cache = axis_values, values
             self.viewer_state.reset_limits()
 
         else:
-            #print("This is a data object")
+            print("This is a data object")
 
             df = self.layer.data.get_temporal_data(self.viewer_state.reference_data._main_components[0], self.viewer_state.t_min, self.viewer_state.t_max)
             #print(df)
-            df = df.set_index('StdTime')
-            time_local = pd.to_datetime(df.index).tz_localize('UTC').tz_convert(TIMEZONE_LOOKUP[self.viewer_state.timezone])
-            df_new = pd.DataFrame({"local_hour": time_local.hour, "data_values": df['NO2 Troposphere']})
-            hourly = df_new.groupby('local_hour').mean('data_values')
-            values = hourly['data_values'].values/1e14
-            axis_values = hourly.index.values
-            #print(values)
-            #print(axis_values)
+            agg = df.groupby(by='StdTime').agg({'NO2_Troposphere': np.nanmean})
+            #print(agg)
+            values = agg['NO2_Troposphere'].values/1e14
+            axis_values = agg.index.values
             self._profile_cache = axis_values, values
             if not self.viewer_state._initial_y_scale_done:
                 self.viewer_state.reset_limits()
