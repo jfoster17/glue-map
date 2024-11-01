@@ -8,6 +8,7 @@ from .state_widgets.layer_timeseries import TimeSeriesLayerStateWidget
 import bqplot
 from bqplot_image_gl import LinesGL
 import numpy as np
+import pandas as pd
 USE_GL = False
 
 
@@ -53,8 +54,8 @@ class TimeSeriesViewer(BqplotProfileView):
 
         if self.state.x_min is not None and self.state.x_max is not None:
             with self.scale_x.hold_sync():
-                self.scale_x.min = self.state.x_min
-                self.scale_x.max = self.state.x_max
+                self.scale_x.min = pd.to_datetime(self.state.x_min).to_numpy()
+                self.scale_x.max = pd.to_datetime(self.state.x_max).to_numpy()
 
         if self.state.y_min is not None and self.state.y_max is not None:
             with self.scale_y.hold_sync():

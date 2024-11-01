@@ -237,7 +237,6 @@ class RemoteGeoData_ArcGISImageServer(BaseCartesianData):
             The end time in 'YYYY-MM-DD HH:MM:SS' format (UTC).
 
         """
-
         start_time_ms = convert_to_milliseconds(start_time)
         end_time_ms = convert_to_milliseconds(end_time)
         variable_name = "NO2 Troposphere"
