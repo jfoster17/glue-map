@@ -33,6 +33,9 @@ class TimeSeriesViewerState(ProfileViewerState):
     # But we would need to have the x_att unit be a "real" component with units.
 
     t_date = CallbackProperty(docstring='The date to display')
+    t_min = CallbackProperty(docstring='The minimum time to display')
+    t_max = CallbackProperty(docstring='The maximum time to display')
+
     timezone = SelectionCallbackProperty(docstring='The timezone to use for the time axis')
 
     _initial_y_scale_done = False
@@ -45,21 +48,29 @@ class TimeSeriesViewerState(ProfileViewerState):
         self.t_date = "2024-10-15"
         self.timezone = 'UTC'
         self._update_t_min_t_max()
-        self.add_callback('t_date', self._update_t_min_t_max)
+        self.add_callback('t_date', self._t_date_changed, priority=10000000)
 
         #self.add_callback('x_display_unit', self._convert_units_x_limits, echo_old=True)
         #print("Reference data changed and time params set")
 
         self.update_from_dict(kwargs)
 
-    def _update_t_min_t_max(self):
+    def _t_date_changed(self, *event):
+        self._update_t_min_t_max()
+        for layer in self.layers:
+        #    #print(f"{layer=}")
+            layer.update_profile()
+
+    def _update_t_min_t_max(self, *event):
         """
         This assumes that we are always just displaying a single day of data.
         The state object would need to be significantly more complex to handle
         the arbitrary case.
         """
-        self.t_min = pd.to_datetime(self.t_date).strftime('%Y-%m-%d %H:%M:%S')
-        self.t_max = (pd.to_datetime(self.t_date)+datetime.timedelta(days=1)).strftime('%Y-%m-%d %H:%M:%S')
+        print("In _update_t_min_t_max...")
+        with delay_callback(self, 't_min', 't_max'):
+            self.t_min = pd.to_datetime(self.t_date).strftime('%Y-%m-%d %H:%M:%S')
+            self.t_max = (pd.to_datetime(self.t_date)+datetime.timedelta(days=1)).strftime('%Y-%m-%d %H:%M:%S')
 
     def _reset_x_limits(self, *event):
         print("In _reset_x_limits...")
@@ -134,30 +145,37 @@ class TimeSeriesLayerState(ProfileLayerState):
             self.linewidth = 2
             self.as_steps = False
 
-    def update_profile_with_reset(self, *args):
-        if (self.viewer_state.t_min is None) or (self.viewer_state.t_max is None):
-            return
-        self.reset_cache()
-        self.update_profile(update_limits=False)
+    #def update_profile_with_reset(self, *args):
+    #    if (self.viewer_state.t_min is None) or (self.viewer_state.t_max is None):
+    #        return
+    #    self.reset_cache()
+    #    self.update_profile(update_limits=False)
 
     def reset_cache(self, *args):
-        #print("Resetting cache...")
+        print("Resetting cache...")
+        print(*args)
         self._profile_cache = None
 
     def update_profile(self, update_limits=True):
-        #print("Calling update_profile")
-        #print(f"{self._profile_cache=}")
+        print("Calling update_profile")
+        print(f"{self._profile_cache=}")
         if self._profile_cache is not None:
             return self._profile_cache
 
         if not self.visible:
             return
+    
+        if not self._viewer_callbacks_set:
+            self.viewer_state.add_callback('t_date', self.reset_cache, priority=100000000)
+            self._viewer_callbacks_set = True
+
+
 
         if self.viewer_state is None or self.viewer_state.x_att is None or self.attribute is None:
             raise IncompatibleDataException()
 
         param_list = [self.viewer_state.reference_data, self.viewer_state.t_min, self.viewer_state.t_max, self.viewer_state.timezone]
-        #print(f"{param_list=}")
+        print(f"{param_list=}")
         if any(param is None for param in param_list):
             return
 

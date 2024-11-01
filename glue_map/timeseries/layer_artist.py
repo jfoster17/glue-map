@@ -11,14 +11,14 @@ class TimeSeriesLayerArtist(BqplotProfileLayerArtist):
     def __init__(self, view, viewer_state, layer_state=None, layer=None):
 
         super().__init__(view, viewer_state, layer_state=layer_state, layer=layer)
-        self._viewer_state.add_callback('t_date', self._update_profile, priority=100000)
+        #self._viewer_state.add_callback('t_date', self._update_profile, priority=100000)
 
     def _update_profile(self, force=False, **kwargs):
         """
         This is a copy from glue_jupyter.bqplot.profile.layer_artist.BqplotProfileLayerArtist
         just to add the t_date parameter to the list of properties that trigger the update.
         """
-        #print(f"Calling _update_profile...")
+        print(f"Calling _update_profile...")
 
         if (self.line_mark is None or
                 self._viewer_state.x_att is None or
@@ -30,7 +30,7 @@ class TimeSeriesLayerArtist(BqplotProfileLayerArtist):
         # NOTE: we need to evaluate this even if force=True so that the cache
         # of updated properties is up to date after this method has been called.
         changed = self.pop_changed_properties()
-        #print(f"Calling _update_profile with {force=} and {changed=}")    
+        print(f"Calling _update_profile with {force=} and {changed=}")    
         if force or any(prop in changed for prop in ('layer', 'x_att', 'attribute',
                                                         'function', 'normalize',
                                                         'v_min', 'v_max',
