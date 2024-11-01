@@ -59,7 +59,7 @@ class TimeSeriesLayerArtist(BqplotProfileLayerArtist):
             self._update_visual_attributes()
 
 
-class TimeSeriesLayerSubsetArtist(BqplotProfileLayerArtist):
+class TimeSeriesLayerSubsetArtist(TimeSeriesLayerArtist):
 
     _layer_state_cls = TimeSeriesLayerState
 

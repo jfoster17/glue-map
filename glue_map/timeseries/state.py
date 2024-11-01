@@ -21,6 +21,12 @@ TIMEZONE_LOOKUP = {'NYC': 'America/New_York',
 class TimeSeriesViewerState(ProfileViewerState):
     # We need to have a start-time and end-time in the state here
     # "2024-10-01 00:00:00"
+    # The proper way to handle the timezone is at a UnitConverter
+    # and then the infrastucture of the ProfileViewer will probably
+    # work as expected. It really is just how we are displaying time.
+    # If we aren't selecting regions in TimeSeries we don't need the logic
+    # in MatplotlibProfileMixin.apply_roi()
+    # But we would need to have the x_att unit be a "real" component with units.
 
     t_min = CallbackProperty(docstring='The starting time to show')
     t_max = CallbackProperty(docstring='The ending time to show')
@@ -32,15 +38,17 @@ class TimeSeriesViewerState(ProfileViewerState):
         super().__init__()
         #self.x_min = 0
         #self.x_max = 24
-        timezone_display = {'NYC': 'Eastern', 'CHI': 'Central', 'DEN': 'Mountain', 'LA': 'Pacific'}
-        TimeSeriesViewerState.timezone.set_choices(self, ['NYC','CHI','DEN','LA'])
+        timezone_display = {'NYC': 'Eastern', 'CHI': 'Central', 'DEN': 'Mountain', 'LA': 'Pacific', 'UTC': 'UTC'}
+        TimeSeriesViewerState.timezone.set_choices(self, ['NYC','CHI','DEN','LA','UTC'])
         TimeSeriesViewerState.timezone.set_display_func(self, timezone_display.get)
         #self.add_callback('t_min', self._layers_changed)
         #self.add_callback('t_max', self._layers_changed)
         #self.add_callback('timezone', self._layers_changed)
         self.t_min = "2024-10-15 00:00:00"
         self.t_max = "2024-10-16 00:00:00"
-        self.timezone = 'NYC'
+        self.timezone = 'UTC'
+        #self.add_callback('x_display_unit', self._convert_units_x_limits, echo_old=True)
+
         #print("Reference data changed and time params set")
 
         self.update_from_dict(kwargs)
@@ -50,10 +58,10 @@ class TimeSeriesViewerState(ProfileViewerState):
         if self.reference_data is None or self.x_att_pixel is None:
             return
 
-        #with delay_callback(self, 'x_min', 'x_max'):
+        with delay_callback(self, 'x_min', 'x_max'):
             # Convert the iso format time to a datetime object
-        #    self.x_min = pd.to_datetime(self.t_min).to_numpy()
-        #    self.x_max = pd.to_datetime(self.t_max).to_numpy()
+            self.x_min = pd.to_datetime(self.t_min).to_numpy()
+            self.x_max = pd.to_datetime(self.t_max).to_numpy()
             #if self._profile_cache is not None:
             #    print("Setting x_min and x_max...")
             #    self.x_min = self._profile_cache[0][0]
@@ -195,6 +203,7 @@ class TimeSeriesLayerState(ProfileLayerState):
                 #print(x)
                 #print(y)  
             except AttributeError:
+                #print("Got an attribute error")
                 self._profile_cache = None
                 return     
             coords = list(zip(x, y))
