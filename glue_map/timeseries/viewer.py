@@ -35,8 +35,8 @@ class TimeSeriesViewer(BqplotProfileView):
         self.scale_x = bqplot.DateScale(allow_padding=True)
         self.axis_x.scale = self.scale_x
         self.scales = {'x': self.scale_x, 'y': self.scale_y}
-        print(self.scales)
-        print(self.state.t_min)
+        # print(self.scales)
+        # print(self.state.t_min)
         starting_point = np.array([self.state.t_min, self.state.t_min]).astype('datetime64[ms]')
         self.timemark = LinesClass(scales=self.scales, x=starting_point, y=[-1000, 1000], colors=['gray'], stroke_width=0.3)
         self.figure.marks = list(self.figure.marks) + [self.timemark]
@@ -44,7 +44,7 @@ class TimeSeriesViewer(BqplotProfileView):
         self.state.add_callback('t_max', self._update_bqplot_limits)
 
     def _update_bqplot_limits(self, *args):
-        print("In _update_bqplot_limits...")
+        # print("In _update_bqplot_limits...")
         if self._last_limits == (self.state.x_min, self.state.x_max,
                                  self.state.y_min, self.state.y_max):
             return

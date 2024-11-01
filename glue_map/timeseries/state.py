@@ -67,13 +67,13 @@ class TimeSeriesViewerState(ProfileViewerState):
         The state object would need to be significantly more complex to handle
         the arbitrary case.
         """
-        print("In _update_t_min_t_max...")
+        # print("In _update_t_min_t_max...")
         with delay_callback(self, 't_min', 't_max'):
             self.t_min = pd.to_datetime(self.t_date).strftime('%Y-%m-%d %H:%M:%S')
             self.t_max = (pd.to_datetime(self.t_date)+datetime.timedelta(days=1)).strftime('%Y-%m-%d %H:%M:%S')
 
     def _reset_x_limits(self, *event):
-        print("In _reset_x_limits...")
+        # print("In _reset_x_limits...")
         if self.reference_data is None or self.x_att_pixel is None:
             return
 
@@ -145,20 +145,13 @@ class TimeSeriesLayerState(ProfileLayerState):
             self.linewidth = 2
             self.as_steps = False
 
-    #def update_profile_with_reset(self, *args):
-    #    if (self.viewer_state.t_min is None) or (self.viewer_state.t_max is None):
-    #        return
-    #    self.reset_cache()
-    #    self.update_profile(update_limits=False)
-
     def reset_cache(self, *args):
-        print("Resetting cache...")
-        print(*args)
+        # print("Resetting cache...")
         self._profile_cache = None
 
     def update_profile(self, update_limits=True):
-        print("Calling update_profile")
-        print(f"{self._profile_cache=}")
+        # print("Calling update_profile")
+        # print(f"{self._profile_cache=}")
         if self._profile_cache is not None:
             return self._profile_cache
 
@@ -169,13 +162,10 @@ class TimeSeriesLayerState(ProfileLayerState):
             self.viewer_state.add_callback('t_date', self.reset_cache, priority=100000000)
             self._viewer_callbacks_set = True
 
-
-
         if self.viewer_state is None or self.viewer_state.x_att is None or self.attribute is None:
             raise IncompatibleDataException()
 
         param_list = [self.viewer_state.reference_data, self.viewer_state.t_min, self.viewer_state.t_max, self.viewer_state.timezone]
-        print(f"{param_list=}")
         if any(param is None for param in param_list):
             return
 
@@ -183,8 +173,6 @@ class TimeSeriesLayerState(ProfileLayerState):
             
             try:
                 x, y = self.layer.subset_state.roi.to_polygon()
-                #print(x)
-                #print(y)  
             except AttributeError:
                 #print("Got an attribute error")
                 self._profile_cache = None
@@ -204,9 +192,7 @@ class TimeSeriesLayerState(ProfileLayerState):
             self.viewer_state.reset_limits()
 
         else:
-            print("This is a data object")
-            print(f"{self.viewer_state.t_min=}")
-            print(f"{self.viewer_state.t_max=}")
+            # print("This is a data object")
 
             df = self.layer.data.get_temporal_data(self.viewer_state.reference_data._main_components[0],
                                                    self.viewer_state.t_min,
@@ -223,9 +209,3 @@ class TimeSeriesLayerState(ProfileLayerState):
 
     def update_limits(self, update_profile=True):
         pass
-        #with delay_callback(self, 'v_min', 'v_max'):
-        #    if update_profile:
-        #        self.update_profile(update_limits=False)
-        #    if self._profile_cache is not None and len(self._profile_cache[1]) > 0:
-        #        self.v_min = np.nanmin(self._profile_cache[1])
-        #        self.v_max = np.nanmax(self._profile_cache[1])
