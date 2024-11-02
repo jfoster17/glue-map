@@ -1,3 +1,8 @@
+import bqplot
+from bqplot_image_gl import LinesGL
+import numpy as np
+import pandas as pd
+
 from glue_jupyter.bqplot.profile.viewer import BqplotProfileView
 
 from .state import TimeSeriesViewerState
@@ -5,14 +10,11 @@ from .layer_artist import TimeSeriesLayerArtist, TimeSeriesLayerSubsetArtist
 from .state_widgets.viewer_timeseries import TimeSeriesViewerStateWidget
 from .state_widgets.layer_timeseries import TimeSeriesLayerStateWidget
 
-import bqplot
-from bqplot_image_gl import LinesGL
-import numpy as np
-import pandas as pd
 USE_GL = False
 
 
 class TimeSeriesViewer(BqplotProfileView):
+    """A viewer for displaying time series data using bqplot."""
 
     allow_duplicate_data = False
     allow_duplicate_subset = False
@@ -40,6 +42,7 @@ class TimeSeriesViewer(BqplotProfileView):
         starting_point = np.array([self.state.t_min, self.state.t_min]).astype('datetime64[ms]')
         self.timemark = LinesClass(scales=self.scales, x=starting_point, y=[-1000, 1000], colors=['gray'], stroke_width=0.3)
         self.figure.marks = list(self.figure.marks) + [self.timemark]
+        self._last_limits = (None, None, None, None)
         self.state.add_callback('t_min', self._update_bqplot_limits)
         self.state.add_callback('t_max', self._update_bqplot_limits)
 
@@ -66,8 +69,6 @@ class TimeSeriesViewer(BqplotProfileView):
 
         self._last_limits = (self.state.x_min, self.state.x_max,
                              self.state.y_min, self.state.y_max)
-
-
 
     # A hack to make subsets not work from the viewer
     # FIXME if we add subset creation objects

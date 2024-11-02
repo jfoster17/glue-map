@@ -30,13 +30,13 @@ class TimeSeriesLayerArtist(BqplotProfileLayerArtist):
         # NOTE: we need to evaluate this even if force=True so that the cache
         # of updated properties is up to date after this method has been called.
         changed = self.pop_changed_properties()
-        # print(f"Calling _update_profile with {force=} and {changed=}")    
+        # print(f"Calling _update_profile with {force=} and {changed=}")
         if force or any(prop in changed for prop in ('layer', 'x_att', 'attribute',
-                                                        'function', 'normalize',
-                                                        'v_min', 'v_max',
-                                                        'as_steps',
-                                                        'x_display_unit', 'y_display_unit',
-                                                        't_date')):
+                                                     'function', 'normalize',
+                                                     'v_min', 'v_max',
+                                                     'as_steps',
+                                                     'x_display_unit', 'y_display_unit',
+                                                     't_date')):
             self._calculate_profile(reset=force)
             force = True
 
