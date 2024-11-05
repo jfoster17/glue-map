@@ -215,8 +215,8 @@ class MapPointsLayerState(LayerState):
     cmap = CallbackProperty()
     cmap_mode = color_mode
 
-    #size_limits_cache = CallbackProperty()
-    #cmap_limits_cache = CallbackProperty()
+    size_limits_cache = CallbackProperty()
+    cmap_limits_cache = CallbackProperty()
 
     name = ""  # Name for display
 
