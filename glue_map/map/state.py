@@ -237,7 +237,7 @@ class MapPointsLayerState(LayerState):
             self, "size_att", numeric=True, categorical=False
         )
         self.cmap_att_helper = ComponentIDComboHelper(
-            self, "cmap_att", numeric=True, categorical=False
+            self, "cmap_att", numeric=True, categorical=True
         )
 
         self.size_lim_helper = StateAttributeLimitsHelper(

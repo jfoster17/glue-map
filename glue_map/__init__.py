@@ -11,11 +11,14 @@ def setup():
     red_to_green = ["#D9838D", "#ECDF0B", "#7CB6BD", "#77A865"]
     green_to_red = ["#77A865", "#7CB6BD", "#ECDF0B", "#D9838D"]
 
+    powerplants = ['green','cyan','brown','black']
+
     import matplotlib.cm as cm
     from glue.config import colormaps
     from matplotlib.colors import ListedColormap
 
     colormaps.add("Reds", cm.Reds)
+    colormaps.add("Greys", cm.Greys)
     colormaps.add("Greens", cm.Greens)
     colormaps.add("Blues", cm.Blues)
     colormaps.add("Purples", cm.Purples)
@@ -23,6 +26,8 @@ def setup():
 
     colormaps.add("red_to_green", ListedColormap(red_to_green, name="red_to_green"))
     colormaps.add("green_to_red", ListedColormap(green_to_red, name="green_to_red"))
+
+    colormaps.add("powerplants", ListedColormap(powerplants, name="powerplants"))
 
     colormaps.add("coolwarm", cm.coolwarm)
 

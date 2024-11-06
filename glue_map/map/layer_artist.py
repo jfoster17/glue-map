@@ -328,9 +328,12 @@ class MapPointsLayerArtist(LayerArtist):
                     self._markers.append(
                         CircleMarker(
                             location=(lat, lon),
-                            stroke=False,
-                            fill_color=color2hex(self.state.color),
-                            fill_opacity=self.state.alpha,
+                            stroke=True,
+                            color=color2hex(self.state.color),
+                            #fill_color=color2hex(self.state.color),
+                            opacity=self.state.alpha,
+                            fill_opacity=0,
+                            weight=2,
                         )
                     )  # Might want to make this an option.
                     # This is not quite right, we should store the current colors in a state var?
@@ -366,7 +369,7 @@ class MapPointsLayerArtist(LayerArtist):
                     except IncompatibleAttribute:
                         self.disable_invalid_attributes(self.state.cmap_att)
                         return
-                    # print("Calculating colors...")
+                    #print("Calculating colors...")
 
                     if "cmap_vmin" not in changed and "cmap_att" in changed:
                         self.state.cmap_vmin = min(color_values)
@@ -377,10 +380,10 @@ class MapPointsLayerArtist(LayerArtist):
                     )  # to avoid div by zero
                     normalized_vals = (color_values - self.state.cmap_vmin) / diff
                     for marker, val in zip(self._markers, normalized_vals):
-                        marker.fill_color = color2hex(self.state.cmap(val))
+                        marker.color = color2hex(self.state.cmap(val))
                 else:
                     for marker in self._markers:
-                        marker.fill_color = color2hex(self.state.color)
+                        marker.color = color2hex(self.state.color)
 
             else:
                 try:
@@ -418,6 +421,7 @@ class MapPointsLayerArtist(LayerArtist):
 
                 if self.state.display_mode == "Individual Points":
                     #print("Calculating sizes")
+                    #print(f"{size_values[0:4]=}")
                     if "size_vmin" not in changed and "size_att" in changed:
                         self.state.size_vmin = min(
                             size_values
@@ -454,7 +458,8 @@ class MapPointsLayerArtist(LayerArtist):
         if force or "alpha" in changed:
             if self.state.display_mode == "Individual Points":
                 for marker in self._markers:
-                    marker.fill_opacity = self.state.alpha
+                    marker.fill_opacity = 0
+                    marker.opacity = self.state.alpha
             else:
                 try:
                     self.map.remove_layer(self.map_layer)
