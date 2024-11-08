@@ -14,14 +14,18 @@ class TimeSeriesLayerArtist(BqplotProfileLayerArtist):
     _layer_state_cls = TimeSeriesLayerState
 
     def __init__(self, view, viewer_state, layer_state=None, layer=None):
+        super(BqplotProfileLayerArtist, self).__init__(viewer_state, layer_state=layer_state, layer=layer)
 
-        super().__init__(view, viewer_state, layer_state=layer_state, layer=layer)
-        #self._viewer_state.add_callback('t_date', self._update_profile, priority=100000)
-        self.view.figure.marks = list(self.view.figure.marks)[:-1]
+        self._viewer_state.add_global_callback(self._update_profile)
+        self.state.add_global_callback(self._update_profile)
+
+        self.view = view
+
         LinesClass = LinesGL if USE_GL else bqplot.Lines
-
         self.line_mark = LinesClass(scales=self.view.scales)
-        self.view.figure.marks = list(self.view.figure.marks)+ [self.line_mark]
+
+        self.view.figure.marks = list(self.view.figure.marks) + [self.line_mark]
+
         dlink((self.state, 'color'), (self.line_mark, 'colors'), lambda x: [color2hex(x)])
         dlink((self.state, 'alpha'), (self.line_mark, 'opacities'), lambda x: [x])
 
