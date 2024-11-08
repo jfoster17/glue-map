@@ -28,8 +28,8 @@ class InteractCheckableTool(CheckableTool):
 
         self.viewer._mouse_interact.next = self.interact
 
-    def deactivate(self):
-        self.viewer._mouse_interact.next = None
+    #def deactivate(self):
+    #    self.viewer._mouse_interact.next = None
 
 
 class IpyLeafletSelectionTool(InteractCheckableTool):
@@ -187,6 +187,11 @@ class LassoSelect(IpyLeafletSelectionTool):
             self.close_vertices()
         self.viewer.map.dragging = True
         self.viewer.map._interaction_callbacks = CallbackDispatcher()
+        self.start_coords = None
+        self.points = []
+        self.poly = Polygon(locations=[], **self.styling)
+        self.patch_x = []
+        self.patch_y = []
 
     def close(self):
         pass
@@ -282,6 +287,7 @@ class PolygonSelect(IpyLeafletSelectionTool):
             self.close_vertices()
         self.viewer.map.dragging = True
         self.viewer.map._interaction_callbacks = CallbackDispatcher()
+        super().deactivate()
 
     def close(self):
         pass

@@ -1,7 +1,12 @@
 from glue_jupyter.bqplot.profile.layer_artist import BqplotProfileLayerArtist
 from .state import TimeSeriesLayerState
-
+import bqplot
+from bqplot_image_gl import LinesGL
+from glue_jupyter.link import dlink
+from glue.utils import color2hex
 __all__ = ['TimeSeriesLayerArtist']
+
+USE_GL = False
 
 
 class TimeSeriesLayerArtist(BqplotProfileLayerArtist):
@@ -12,6 +17,17 @@ class TimeSeriesLayerArtist(BqplotProfileLayerArtist):
 
         super().__init__(view, viewer_state, layer_state=layer_state, layer=layer)
         #self._viewer_state.add_callback('t_date', self._update_profile, priority=100000)
+        self.view.figure.marks = list(self.view.figure.marks)[:-1]
+        LinesClass = LinesGL if USE_GL else bqplot.Lines
+
+        self.line_mark = LinesClass(scales=self.view.scales)
+        self.view.figure.marks = list(self.view.figure.marks)+ [self.line_mark]
+        dlink((self.state, 'color'), (self.line_mark, 'colors'), lambda x: [color2hex(x)])
+        dlink((self.state, 'alpha'), (self.line_mark, 'opacities'), lambda x: [x])
+
+        self.line_mark.colors = [color2hex(self.state.color)]
+        self.line_mark.opacities = [self.state.alpha]
+
 
     def _update_profile(self, force=False, **kwargs):
         """

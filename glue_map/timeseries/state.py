@@ -53,8 +53,6 @@ class TimeSeriesViewerState(ProfileViewerState):
         #self.add_callback('x_display_unit', self._convert_units_x_limits, echo_old=True)
         #print("Reference data changed and time params set")
 
-        self.update_from_dict(kwargs)
-
     def _t_date_changed(self, *event):
         self._update_t_min_t_max()
         for layer in self.layers:
@@ -179,7 +177,6 @@ class TimeSeriesLayerState(ProfileLayerState):
                 return     
             coords = list(zip(x, y))
             polygon = Polygon(coords)
-
             df = self.layer.data.get_temporal_data(self.viewer_state.reference_data._main_components[0],
                                                    self.viewer_state.t_min,
                                                    self.viewer_state.t_max,
@@ -190,6 +187,7 @@ class TimeSeriesLayerState(ProfileLayerState):
             #print("This is a subset")
             self._profile_cache = axis_values, values
             self.viewer_state.reset_limits()
+
 
         else:
             # print("This is a data object")
