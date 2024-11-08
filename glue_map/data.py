@@ -186,7 +186,10 @@ class RemoteGeoData_ArcGISImageServer(BaseCartesianData):
         colorscale : str
             The name of the color scale to use for the rendering rule.
         """
-
+        #colorscale = 'MagmaHeatmap'
+        #colorscale = 'Magma Heatmap'
+        #colorscale = 'Magma-Heatmap'
+        colorscale = 'Magma'
         rendering_rule_standard_colorramp = {
             "rasterFunctionArguments": {
                 "ColorrampName": f"{colorscale}",  #preset ColorRamp from ArcGIS
@@ -209,7 +212,8 @@ class RemoteGeoData_ArcGISImageServer(BaseCartesianData):
             "rasterFunction": "Colormap",
             "variableName": "Raster"
         }
-        return rendering_rule_standard_colorramp
+        rendering_rule_torch = {"rasterFunction":"torch_RGB"}
+        return rendering_rule_torch
 
     def translate_region(self, region):
         """
@@ -310,7 +314,8 @@ class RemoteGeoData_ArcGISImageServer(BaseCartesianData):
         Get a statistic for a given component ID, which we can do by calling out to the
         ImageServer.
         """
-        stats = [0, 30000000000000000, 910863682171422.1, 9474291611234248] # FIXME
+        #stats = [100000000000000, 15000000000000000, 910863682171422.1, 9474291611234248] # FIXME
+        stats = [0, 30000000000000000, 910863682171422.1, 9474291611234248]
         return stats
 
     @property
