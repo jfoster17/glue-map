@@ -188,7 +188,6 @@ class TimeSeriesLayerState(ProfileLayerState):
             self._profile_cache = axis_values, values
             self.viewer_state.reset_limits()
 
-
         else:
             # print("This is a data object")
 
@@ -201,6 +200,10 @@ class TimeSeriesLayerState(ProfileLayerState):
             values = agg['NO2_Troposphere'].values/1e14
             axis_values = agg.index.values
             self._profile_cache = axis_values, values
+
+            #Fake data to make this quick for layout testing
+            #self._profile_cache = [0,0], [1,1]
+
             if not self.viewer_state._initial_y_scale_done:
                 self.viewer_state.reset_limits()
                 self.viewer_state._initial_y_scale_done = True

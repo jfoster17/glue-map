@@ -201,8 +201,8 @@ class RemoteGeoData_ArcGISImageServer(BaseCartesianData):
                         "UseGamma": False,
                         "Gamma": [1],
                         "ComputeGamma": True,
-                        "Min": 0,
-                        "Max": 255
+                        "Min": 255,
+                        "Max": 0
                     },
                     "rasterFunction": "Stretch",
                     "outputPixelType": "U64", # must coincide with parameter's pixel type
@@ -213,7 +213,7 @@ class RemoteGeoData_ArcGISImageServer(BaseCartesianData):
             "variableName": "Raster"
         }
         rendering_rule_torch = {"rasterFunction":"torch_RGB"}
-        return rendering_rule_torch
+        return rendering_rule_standard_colorramp
 
     def translate_region(self, region):
         """
@@ -315,7 +315,8 @@ class RemoteGeoData_ArcGISImageServer(BaseCartesianData):
         ImageServer.
         """
         #stats = [100000000000000, 15000000000000000, 910863682171422.1, 9474291611234248] # FIXME
-        stats = [0, 30000000000000000, 910863682171422.1, 9474291611234248]
+        #stats = [0, 30000000000000000, 910863682171422.1, 9474291611234248]
+        stats = [100000000000000, 15000000000000000, 210863682171422.1, 2474291611234248]
         return stats
 
     @property

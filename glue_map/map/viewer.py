@@ -141,7 +141,7 @@ class ImageServerLayerStateWidget(VBox):
         )
         link((self.state, "opacity"), (self.widget_opacity, "value"))
 
-        colorscape_options = ['Viridis', 'Magma', 'Inferno', 'Plasma']
+        colorscape_options = ['Viridis', 'Magma', 'Inferno', 'Plasma', '']
         self.widget_colorscale = ipywidgets.Dropdown(
             options=colorscape_options, description="Colorscape"
         )

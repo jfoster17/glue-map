@@ -427,7 +427,7 @@ class MapImageServerLayerState(LayerState):
     layer = CallbackProperty()
     timestep = CallbackProperty(1715683263000)
 
-    colorscale = CallbackProperty("Viridis")  # This gets passed into renderingRule by the custom Data object
+    colorscale = CallbackProperty("Magma")  # This gets passed into renderingRule by the custom Data object
     opacity = CallbackProperty(1)  # Since we are not currently inheriting from MatplotlibLayerState, we need to have this.
 
     def __init__(self, layer=None, **kwargs):
