@@ -186,10 +186,6 @@ class RemoteGeoData_ArcGISImageServer(BaseCartesianData):
         colorscale : str
             The name of the color scale to use for the rendering rule.
         """
-        #colorscale = 'MagmaHeatmap'
-        #colorscale = 'Magma Heatmap'
-        #colorscale = 'Magma-Heatmap'
-        colorscale = 'Magma'
         rendering_rule_standard_colorramp = {
             "rasterFunctionArguments": {
                 "ColorrampName": f"{colorscale}",  #preset ColorRamp from ArcGIS
