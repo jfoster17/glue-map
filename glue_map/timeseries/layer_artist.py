@@ -31,7 +31,7 @@ class TimeSeriesLayerArtist(BqplotProfileLayerArtist):
 
         self.line_mark.colors = [color2hex(self.state.color)]
         self.line_mark.opacities = [self.state.alpha]
-
+        self.line_mark.marker = 'circle'
 
     def _update_profile(self, force=False, **kwargs):
         """
