@@ -16,6 +16,7 @@ USE_GL = False
 class TimeSeriesViewer(BqplotProfileView):
     """A viewer for displaying time series data using bqplot."""
 
+    inherit_tools = False
     allow_duplicate_data = False
     allow_duplicate_subset = False
     is2d = False

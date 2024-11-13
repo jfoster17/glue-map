@@ -43,6 +43,21 @@ class IpyLeafletSelectionTool(InteractCheckableTool):
 
 
 @viewer_tool
+class Home(Tool):
+    icon = "glue_home"
+    tool_id = "ipyleaflet:home"
+    action_text = "Home"
+    tool_tip = "Reset original zoom"
+
+    def __init__(self, viewer):
+        super().__init__(viewer)
+
+    def activate(self):
+        # We could define a reset_limits in the state object instead
+        self.viewer.map.center = self.viewer.state.start_center
+        self.viewer.map.zoom = self.viewer.state.start_zoom_level
+
+@viewer_tool
 class PointSelect(IpyLeafletSelectionTool):
     icon = "glue_crosshair"
     tool_id = "ipyleaflet:pointselect"
@@ -388,14 +403,3 @@ class RectangleSelect(IpyLeafletSelectionTool):
 
     def close(self):
         pass
-
-
-@viewer_tool
-class HomeTool(Tool):
-    tool_id = "ipyleaflet:home"
-    icon = "glue_home"
-    action_text = "Home"
-    tool_tip = "Reset original zoom"
-
-    def activate(self):
-        self.viewer.state.reset_limits()

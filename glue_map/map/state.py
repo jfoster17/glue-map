@@ -86,6 +86,8 @@ class MapViewerState(ViewerState):
         self.add_callback("layers", self._on_layers_changed)
         self._on_layers_changed()
         self.update_from_dict(kwargs)
+        self.start_center = self.center
+        self.start_zoom_level = self.zoom_level
 
     def _on_layers_changed(self, *args):
         self.lon_att_helper.set_multiple_data(self.layers_data)
