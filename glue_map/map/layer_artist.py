@@ -108,6 +108,12 @@ class MapImageServerSubsetLayerArtist(LayerArtist):
         #self.polygon_layer.opacity = self.state.opacity
         #elf.polygon_layer.visible = self.state.visible
 
+    def clear(self):
+        if self.polygon_layer is not None:
+            try:
+                self.map.remove(self.polygon_layer)
+            except ipyleaflet.LayerException:
+                pass
 
 
 class MapImageServerLayerArtist(LayerArtist):
