@@ -79,6 +79,32 @@ class TimeSeriesViewerState(ProfileViewerState):
         #    self.x_min = self.t_min
         #    self.x_max = self.t_max
 
+    def _reset_y_limits(self, *event):
+        if self.normalize:
+            with delay_callback(self, 'y_min', 'y_max'):
+                self.y_min = -0.1
+                self.y_max = +1.1
+        else:
+            y_min, y_max = np.inf, -np.inf
+            for layer in self.layers:
+                try:
+                    profile = layer.profile
+                except Exception:  # e.g. incompatible subset
+                    continue
+                if profile is not None:
+                    x, y = profile
+                    if len(y) > 0:
+                        y_min = min(y_min, np.nanmin(y))
+                        y_max = max(y_max, np.nanmax(y))
+            with delay_callback(self, 'y_min', 'y_max'):
+                if y_max > y_min:
+                    self.y_min = y_min
+                    self.y_max = y_max*1.1
+                else:
+                    self.y_min = 0
+                    self.y_max = 1
+
+
     @defer_draw
     def _reference_data_changed(self, before=None, after=None):
         #print("Reference data changed")
