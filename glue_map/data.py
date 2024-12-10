@@ -111,6 +111,7 @@ class RemoteGeoData_ArcGISImageServer(BaseCartesianData):
 
     image_service_url = "https://arcgis.asdc.larc.nasa.gov/server/rest/services/POWER/power_901_monthly_meteorology_utc/ImageServer"
                         "https://gis.earthdata.nasa.gov/image/rest/services/C2930763263-LARC_CLOUD/TEMPO_NO2_L3_V03_HOURLY_TROPOSPHERIC_VERTICAL_COLUMN_BETA/ImageServer"
+                        "https://gis.earthdata.nasa.gov/image/rest/services/C2930763263-LARC_CLOUD/TEMPO_NO2_L3_V03_HOURLY_TROPOSPHERIC_VERTICAL_COLUMN/ImageServer"
                         "https://gis.earthdata.nasa.gov/image/rest/services/C2930763263-LARC_CLOUD/"
 
 
@@ -138,7 +139,7 @@ class RemoteGeoData_ArcGISImageServer(BaseCartesianData):
         #time_component_values = multidimensionalInfo["dimensions"]["values"]
         super().__init__(**kwargs)
         self.id = ComponentIDDict(self)
-        self._main_components = [ComponentID(label="TEMPO_NO2_L3_V03_HOURLY_TROPOSPHERIC_VERTICAL_COLUMN_BETA",)] #FIXME How do we get this from the ImageServer?
+        self._main_components = [ComponentID(label="TEMPO_NO2_L3_V03_HOURLY_TROPOSPHERIC_VERTICAL_COLUMN",)] #FIXME How do we get this from the ImageServer?
 
     def get_time(self, tstart, tend):
         """
